@@ -8,6 +8,7 @@ pico_generate_pio_header(boid ${CMAKE_CURRENT_LIST_DIR}/vsync.pio)
 pico_generate_pio_header(boid ${CMAKE_CURRENT_LIST_DIR}/rgb.pio)
 
 # must match with executable name and source file names
+# REPLACE C FILE HERE
 target_sources(boid PRIVATE animation_with_predator.c vga_graphics.c)
 
 # must match with executable name
