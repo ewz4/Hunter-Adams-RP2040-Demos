@@ -76,7 +76,7 @@ struct boid {
 struct boid boids_0[N_boids];
 struct boid boids_1[N_boids];
 int curr_N_boids = 0;
-int i = 0;
+volatile int i = 0;
 
 
 struct predator {
@@ -140,6 +140,11 @@ fix15 dx_0 ;
 fix15 dy_0 ;
 fix15 squared_distance_0 ;
 fix15 neighboring_boids_div_0 ;
+int i_0 ;
+fix15 squared_predator_distance_0 ;
+fix15 predator_dx_0 ;
+fix15 predator_dy_0 ;
+int num_predators_0 ;
 
 volatile int still_running = 1; // Flag to stop core 1 until core 0 is ready to move on
 
@@ -158,6 +163,11 @@ fix15 dx_1 ;
 fix15 dy_1 ;
 fix15 squared_distance_1 ;
 fix15 neighboring_boids_div_1 ;
+int i_1 ;
+fix15 squared_predator_distance_1 ;
+fix15 predator_dx_1 ;
+fix15 predator_dy_1 ;
+int num_predators_1 ;
 
 // fix15 boid1_x ;
 // fix15 boid1_y ;
@@ -189,37 +199,41 @@ int x_screen_right = 640;
 
 
 // Create all boids
-void spawnBoids(int core)
+void spawnBoids(fix15 *x, fix15 *y, fix15 *vx, fix15 *vy)
 {
+  *x = int2fix15(rand() % 640);
+  *y = int2fix15(rand() % 480);
+  *vx = int2fix15(rand() % 3 + 3);
+  *vy = int2fix15(rand() % 3 + 3);
   // If running on Core 0
-  if (core == 0)
-  {
-    for (i = 0; i < curr_N_boids/2; i++)
-    {
-      boids_0[i].x = int2fix15(rand() % 640);
-      boids_0[i].y = int2fix15(rand() % 480);
-      boids_0[i].vx = int2fix15(rand() % 3 + 3);
-      boids_0[i].vy = int2fix15(rand() % 3 + 3);
-    }
-    for (k = 0; k < curr_N_predators; k++)
-    {
-      predators[k].x = int2fix15(rand() % 640);
-      predators[k].y = int2fix15(rand() % 480);
-      predators[k].vx = int2fix15(rand() % 3 + 3);
-      predators[k].vy = int2fix15(rand() % 3 + 3);
-    }
-    k = 0;
-  }
-  else if (core == 1)
-  {
-    for (i = 0; i < curr_N_boids/2; i++)
-    {
-      boids_1[i].x = int2fix15(rand() % 640);
-      boids_1[i].y = int2fix15(rand() % 480);
-      boids_1[i].vx = int2fix15(rand() % 3 + 3);
-      boids_1[i].vy = int2fix15(rand() % 3 + 3);
-    }
-  }
+  // if (core == 0)
+  // {
+  //   for (i = 0; i < curr_N_boids/2; i++)
+  //   {
+  //     boids_0[i].x = int2fix15(rand() % 640);
+  //     boids_0[i].y = int2fix15(rand() % 480);
+  //     boids_0[i].vx = int2fix15(rand() % 3 + 3);
+  //     boids_0[i].vy = int2fix15(rand() % 3 + 3);
+  //   }
+  //   for (k = 0; k < curr_N_predators; k++)
+  //   {
+  //     predators[k].x = int2fix15(rand() % 640);
+  //     predators[k].y = int2fix15(rand() % 480);
+  //     predators[k].vx = int2fix15(rand() % 3 + 3);
+  //     predators[k].vy = int2fix15(rand() % 3 + 3);
+  //   }
+  //   k = 0;
+  // }
+  // else if (core == 1)
+  // {
+  //   for (i = 0; i < curr_N_boids/2; i++)
+  //   {
+  //     boids_1[i].x = int2fix15(rand() % 640);
+  //     boids_1[i].y = int2fix15(rand() % 480);
+  //     boids_1[i].vx = int2fix15(rand() % 3 + 3);
+  //     boids_1[i].vy = int2fix15(rand() % 3 + 3);
+  //   }
+  // }
 }
 
 // Draw the boundaries
@@ -249,9 +263,7 @@ void drawArena(int should_draw)
 }
 
 // Detect wallstrikes, update velocity and position
-void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close_dx, fix15 close_dy, 
-               fix15 xpos_avg, fix15 ypos_avg, fix15 xvel_avg, fix15 yvel_avg, fix15 neighboring_boids, 
-               fix15 neighboring_boids_div, fix15 speed, int i)
+void boid_algo(int core)
 {
   if (core == 0)
   {
@@ -259,35 +271,35 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
     for (int j = 0; j < curr_N_boids/2; j++) 
     {
       // For each boid other than the current boid
-      if (j != i) 
+      if (j != i_0) 
       {
         // Compute differences in x and y coordinates
-        dx = boids_0[i].x - boids_0[j].x;
-        dy = boids_0[i].y - boids_0[j].y;
+        dx_0 = boids_0[i_0].x - boids_0[j].x;
+        dy_0 = boids_0[i_0].y - boids_0[j].y;
         // Are both those differences less than the visual range?
-        if (absfix15(dx) < visualRange && absfix15(dy) < visualRange)
+        if (absfix15(dx_0) < visualRange && absfix15(dy_0) < visualRange)
         {
           // If so, calculate the squared distance
-          squared_distance = multfix15(dx,dx) + multfix15(dy,dy);
+          squared_distance_0 = multfix15(dx_0,dx_0) + multfix15(dy_0,dy_0);
 
           // Is squared distance less than the protected range?
-          if (squared_distance < protectedRangeSquared)
+          if (squared_distance_0 < protectedRangeSquared)
           {
               // If so, calculate difference in x/y-coordinates to nearfield boid
-              close_dx += boids_0[i].x - boids_0[j].x;
-              close_dy += boids_0[i].y - boids_0[j].y;
+              close_dx_0 += boids_0[i_0].x - boids_0[j].x;
+              close_dy_0 += boids_0[i_0].y - boids_0[j].y;
           }
           // If not in protected range, is the boid in the visual range?
-          else if (squared_distance < visualRangeSquared)
+          else if (squared_distance_0 < visualRangeSquared)
           {
               // Add other boid's x/y-coord and x/y vel to accumulator variables
-              xpos_avg += boids_0[j].x;
-              ypos_avg += boids_0[j].y;
-              xvel_avg += boids_0[j].vx;
-              yvel_avg += boids_0[j].vy;
+              xpos_avg_0 += boids_0[j].x;
+              ypos_avg_0 += boids_0[j].y;
+              xvel_avg_0 += boids_0[j].vx;
+              yvel_avg_0 += boids_0[j].vy;
               
               // Increment number of boids within visual range
-              neighboring_boids++;
+              neighboring_boids_0++;
           }
         }
       }
@@ -295,120 +307,120 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
     for (int j = 0; j < curr_N_boids/2; j++) 
     {
       // For each boid other than the current boid
-      if (j != i) 
+      if (j != i_0) 
       {
         // Compute differences in x and y coordinates
-        dx = boids_0[i].x - boids_1[j].x;
-        dy = boids_0[i].y - boids_1[j].y;
+        dx_0 = boids_0[i_0].x - boids_1[j].x;
+        dy_0 = boids_0[i_0].y - boids_1[j].y;
         // Are both those differences less than the visual range?
-        if (absfix15(dx) < visualRange && absfix15(dy) < visualRange)
+        if (absfix15(dx_0) < visualRange && absfix15(dy_0) < visualRange)
         {
           // If so, calculate the squared distance
-          squared_distance = multfix15(dx,dx) + multfix15(dy,dy);
+          squared_distance_0 = multfix15(dx_0,dx_0) + multfix15(dy_0,dy_0);
 
           // Is squared distance less than the protected range?
-          if (squared_distance < protectedRangeSquared)
+          if (squared_distance_0 < protectedRangeSquared)
           {
               // If so, calculate difference in x/y-coordinates to nearfield boid
-              close_dx += boids_0[i].x - boids_1[j].x;
-              close_dy += boids_0[i].y - boids_1[j].y;
+              close_dx_0 += boids_0[i_0].x - boids_1[j].x;
+              close_dy_0 += boids_0[i_0].y - boids_1[j].y;
           }
           // If not in protected range, is the boid in the visual range?
-          else if (squared_distance < visualRangeSquared)
+          else if (squared_distance_0 < visualRangeSquared)
           {
               // Add other boid's x/y-coord and x/y vel to accumulator variables
-              xpos_avg += boids_1[j].x;
-              ypos_avg += boids_1[j].y;
-              xvel_avg += boids_1[j].vx;
-              yvel_avg += boids_1[j].vy;
+              xpos_avg_0 += boids_1[j].x;
+              ypos_avg_0 += boids_1[j].y;
+              xvel_avg_0 += boids_1[j].vx;
+              yvel_avg_0 += boids_1[j].vy;
               
               // Increment number of boids within visual range
-              neighboring_boids++;
+              neighboring_boids_0++;
           }
         }
       }
     }
 
     // If there were any boids in the visual range
-    if (neighboring_boids > 0)
+    if (neighboring_boids_0 > 0)
     {
       // Divide accumulator variables by number of boids in visual range
-      neighboring_boids_div = divfix(int2fix15(1), int2fix15(neighboring_boids));
-      xpos_avg = multfix15(xpos_avg,neighboring_boids_div);
-      ypos_avg = multfix15(ypos_avg,neighboring_boids_div);
-      xvel_avg = multfix15(xvel_avg,neighboring_boids_div);
-      yvel_avg = multfix15(yvel_avg,neighboring_boids_div);
+      neighboring_boids_div_0 = divfix(int2fix15(1), int2fix15(neighboring_boids_0));
+      xpos_avg_0 = multfix15(xpos_avg_0,neighboring_boids_div_0);
+      ypos_avg_0 = multfix15(ypos_avg_0,neighboring_boids_div_0);
+      xvel_avg_0 = multfix15(xvel_avg_0,neighboring_boids_div_0);
+      yvel_avg_0 = multfix15(yvel_avg_0,neighboring_boids_div_0);
 
       // Add the centering/matching contributions to velocity
-      boids_0[i].vx = (boids_0[i].vx + 
-                    multfix15(xpos_avg - boids_0[i].x, centeringfactor) + 
-                    multfix15(xvel_avg - boids_0[i].vx, matchingfactor));
-      boids_0[i].vy = (boids_0[i].vy + 
-                    multfix15(ypos_avg - boids_0[i].y, centeringfactor) + 
-                    multfix15(yvel_avg - boids_0[i].vy, matchingfactor));
+      boids_0[i_0].vx = (boids_0[i_0].vx + 
+                    multfix15(xpos_avg_0 - boids_0[i_0].x, centeringfactor) + 
+                    multfix15(xvel_avg_0 - boids_0[i_0].vx, matchingfactor));
+      boids_0[i_0].vy = (boids_0[i_0].vy + 
+                    multfix15(ypos_avg_0 - boids_0[i_0].y, centeringfactor) + 
+                    multfix15(yvel_avg_0 - boids_0[i_0].vy, matchingfactor));
     }
 
     // Add the avoidance contribution to velocity
-    boids_0[i].vx = boids_0[i].vx + multfix15(close_dx, avoidfactor);
-    boids_0[i].vy = boids_0[i].vy + multfix15(close_dy, avoidfactor);
+    boids_0[i_0].vx = boids_0[i_0].vx + multfix15(close_dx_0, avoidfactor);
+    boids_0[i_0].vy = boids_0[i_0].vy + multfix15(close_dy_0, avoidfactor);
     
     // If the boid is near an edge, make it turn by turnfactor
     // (this describes a box, will vary based on boundary conditions)
     if (should_draw == 0) //wrap everywhere
     {
-      if (boids_0[i].y < int2fix15(y_screen_top))
+      if (boids_0[i_0].y < int2fix15(y_screen_top))
       {
-          boids_0[i].y = int2fix15(y_screen_bottom);
+          boids_0[i_0].y = int2fix15(y_screen_bottom);
       }
-      if (boids_0[i].y > int2fix15(y_screen_bottom))
+      if (boids_0[i_0].y > int2fix15(y_screen_bottom))
       {
-          boids_0[i].y = int2fix15(y_screen_top);
+          boids_0[i_0].y = int2fix15(y_screen_top);
       } 
-      if (boids_0[i].x < int2fix15(x_screen_left))
+      if (boids_0[i_0].x < int2fix15(x_screen_left))
       {
-          boids_0[i].x = int2fix15(x_screen_right);
+          boids_0[i_0].x = int2fix15(x_screen_right);
       }
-      if (boids_0[i].x > int2fix15(x_screen_right))
+      if (boids_0[i_0].x > int2fix15(x_screen_right))
       {
-          boids_0[i].x = int2fix15(x_screen_left);
+          boids_0[i_0].x = int2fix15(x_screen_left);
       }  
     }
     else if (should_draw == 1) // if should_draw == 1 --> box
     {
-      if (boids_0[i].y < int2fix15(y_margin_top_box))
+      if (boids_0[i_0].y < int2fix15(y_margin_top_box))
       {
-        boids_0[i].vy = boids_0[i].vy + turnfactor;
+        boids_0[i_0].vy = boids_0[i_0].vy + turnfactor;
       }
-      if (boids_0[i].y > int2fix15(y_margin_bottom_box))
+      if (boids_0[i_0].y > int2fix15(y_margin_bottom_box))
       {
-        boids_0[i].vy = boids_0[i].vy - turnfactor;
+        boids_0[i].vy = boids_0[i_0].vy - turnfactor;
       } 
-      if (boids_0[i].x < int2fix15(x_margin_left_box))
+      if (boids_0[i_0].x < int2fix15(x_margin_left_box))
       {
-        boids_0[i].vx = boids_0[i].vx + turnfactor;
+        boids_0[i_0].vx = boids_0[i_0].vx + turnfactor;
       }
-      if (boids_0[i].x > int2fix15(x_margin_right_box))
+      if (boids_0[i_0].x > int2fix15(x_margin_right_box))
       {
-        boids_0[i].vx = boids_0[i].vx - turnfactor;
+        boids_0[i_0].vx = boids_0[i_0].vx - turnfactor;
       }  
     }
     else // should_draw == 2 --> draw 2 lines
     {
-      if (boids_0[i].y < int2fix15(y_screen_top))
+      if (boids_0[i_0].y < int2fix15(y_screen_top))
       {
-          boids_0[i].y = int2fix15(y_screen_bottom);
+          boids_0[i_0].y = int2fix15(y_screen_bottom);
       }
-      if (boids_0[i].y > int2fix15(y_screen_bottom))
+      if (boids_0[i_0].y > int2fix15(y_screen_bottom))
       {
-          boids_0[i].y = int2fix15(y_screen_top);
+          boids_0[i_0].y = int2fix15(y_screen_top);
       } 
-      if (boids_0[i].x < int2fix15(x_margin_left_V_line))
+      if (boids_0[i_0].x < int2fix15(x_margin_left_V_line))
       {
-        boids_0[i].vx = boids_0[i].vx + turnfactor;
+        boids_0[i_0].vx = boids_0[i_0].vx + turnfactor;
       }
-      if (boids_0[i].x > int2fix15(x_margin_right_V_line))
+      if (boids_0[i_0].x > int2fix15(x_margin_right_V_line))
       {
-        boids_0[i].vx = boids_0[i].vx - turnfactor;
+        boids_0[i_0].vx = boids_0[i_0].vx - turnfactor;
       }   
     }
   
@@ -418,47 +430,46 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
       
     for (k = 0; k < curr_N_predators; k++)
     {
-      
       // Compute the differences in x and y coordinates
-      dx = boids_0[i].x - predators[k].x;
-      dy = boids_0[i].y - predators[k].y;
+      dx_0 = boids_0[i_0].x - predators[k].x;
+      dy_0 = boids_0[i_0].y - predators[k].y;
 
       // Are both those differences less than the predatory range?
-      if (absfix15(dx) < predatory_range && absfix15(dy) < predatory_range)
+      if (absfix15(dx_0) < predatory_range && absfix15(dy_0) < predatory_range)
       {
         // If so, calculate the squared distance to the predator
-        squared_predator_distance = multfix15(dx,dx) + multfix15(dy,dy);
+        squared_predator_distance_0 = multfix15(dx_0,dx_0) + multfix15(dy_0,dy_0);
 
         // Is the squared distance less than the predatory range squared?
-        if (squared_predator_distance < predatory_range_square)
+        if (squared_predator_distance_0 < predatory_range_square)
         {
-          predator_dx += boids_0[i].x - predators[k].x;
-          predator_dy += boids_0[i].y - predators[k].y;
+          predator_dx_0 += boids_0[i_0].x - predators[k].x;
+          predator_dy_0 += boids_0[i_0].y - predators[k].y;
 
           // Increment the number of predators in the boid's predatory range
-          num_predators += 1;
+          num_predators_0 += 1;
         }
       }
     }
 
     // If there were any predators in the predatory range, turn away
-    if (num_predators > 0)
+    if (num_predators_0 > 0)
     {
-      if (predator_dy > 0)
+      if (predator_dy_0 > 0)
       {
-        boids_0[i].vy = boids_0[i].vy + predator_turnfactor;
+        boids_0[i_0].vy = boids_0[i_0].vy + predator_turnfactor;
       }
-      if (predator_dy < 0)
+      if (predator_dy_0 < 0)
       {
-        boids_0[i].vy = boids_0[i].vy - predator_turnfactor;
+        boids_0[i_0].vy = boids_0[i_0].vy - predator_turnfactor;
       }
       if (predator_dx > 0)
       {
-        boids_0[i].vx = boids_0[i].vx + predator_turnfactor;
+        boids_0[i_0].vx = boids_0[i_0].vx + predator_turnfactor;
       }
       if (predator_dx < 0)
       {
-        boids_0[i].vx = boids_0[i].vx - predator_turnfactor;
+        boids_0[i_0].vx = boids_0[i_0].vx - predator_turnfactor;
       }
     }
     //////////////////////////////////
@@ -466,21 +477,21 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
 
     //Calculate the boid's speed
     //Slow step! Lookup the "alpha max plus beta min" algorithm  
-    speed = sqrtfix(multfix15(boids_0[i].vx,boids_0[i].vx) + 
-                    multfix15(boids_0[i].vy,boids_0[i].vy));
+    speed_0 = sqrtfix(multfix15(boids_0[i_0].vx,boids_0[i_0].vx) + 
+                    multfix15(boids_0[i_0].vy,boids_0[i_0].vy));
 
-    if (speed > maxspeed) {
-      boids_0[i].vx = multfix15(divfix(boids_0[i].vx, speed), maxspeed);
-      boids_0[i].vy = multfix15(divfix(boids_0[i].vy, speed), maxspeed);
+    if (speed_0 > maxspeed) {
+      boids_0[i_0].vx = multfix15(divfix(boids_0[i_0].vx, speed_0), maxspeed);
+      boids_0[i_0].vy = multfix15(divfix(boids_0[i_0].vy, speed_0), maxspeed);
     }
-    if (speed < minspeed) {
-      boids_0[i].vx = multfix15(divfix(boids_0[i].vx, speed), minspeed);
-      boids_0[i].vy = multfix15(divfix(boids_0[i].vy, speed), minspeed);
+    if (speed_0 < minspeed) {
+      boids_0[i_0].vx = multfix15(divfix(boids_0[i_0].vx, speed_0), minspeed);
+      boids_0[i_0].vy = multfix15(divfix(boids_0[i_0].vy, speed_0), minspeed);
     }
 
     // Update position using velocity
-    boids_0[i].x = boids_0[i].x + boids_0[i].vx;
-    boids_0[i].y = boids_0[i].y + boids_0[i].vy;
+    boids_0[i_0].x = boids_0[i_0].x + boids_0[i_0].vx;
+    boids_0[i_0].y = boids_0[i_0].y + boids_0[i_0].vy;
   }
 
 
@@ -490,35 +501,35 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
     for (int j = 0; j < curr_N_boids/2; j++) 
     {
       // For each boid other than the current boid
-      if (j != i) 
+      if (j != i_1) 
       {
         // Compute differences in x and y coordinates
-        dx = boids_1[i].x - boids_0[j].x;
-        dy = boids_1[i].y - boids_0[j].y;
+        dx_1 = boids_1[i_1].x - boids_0[j].x;
+        dy_1 = boids_1[i_1].y - boids_0[j].y;
         // Are both those differences less than the visual range?
-        if (absfix15(dx) < visualRange && absfix15(dy) < visualRange)
+        if (absfix15(dx_1) < visualRange && absfix15(dy_1) < visualRange)
         {
           // If so, calculate the squared distance
-          squared_distance = multfix15(dx,dx) + multfix15(dy,dy);
+          squared_distance_1 = multfix15(dx_1,dx_1) + multfix15(dy_1,dy_1);
 
           // Is squared distance less than the protected range?
-          if (squared_distance < protectedRangeSquared)
+          if (squared_distance_1 < protectedRangeSquared)
           {
               // If so, calculate difference in x/y-coordinates to nearfield boid
-              close_dx += boids_1[i].x - boids_0[j].x;
-              close_dy += boids_1[i].y - boids_0[j].y;
+              close_dx_1 += boids_1[i_1].x - boids_0[j].x;
+              close_dy_1 += boids_1[i_1].y - boids_0[j].y;
           }
           // If not in protected range, is the boid in the visual range?
-          else if (squared_distance < visualRangeSquared)
+          else if (squared_distance_1 < visualRangeSquared)
           {
               // Add other boid's x/y-coord and x/y vel to accumulator variables
-              xpos_avg += boids_0[j].x;
-              ypos_avg += boids_0[j].y;
-              xvel_avg += boids_0[j].vx;
-              yvel_avg += boids_0[j].vy;
+              xpos_avg_1 += boids_0[j].x;
+              ypos_avg_1 += boids_0[j].y;
+              xvel_avg_1 += boids_0[j].vx;
+              yvel_avg_1 += boids_0[j].vy;
               
               // Increment number of boids within visual range
-              neighboring_boids++;
+              neighboring_boids_1++;
           }
         }
       }
@@ -529,117 +540,117 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
       if (j != i) 
       {
         // Compute differences in x and y coordinates
-        dx = boids_1[i].x - boids_1[j].x;
-        dy = boids_1[i].y - boids_1[j].y;
+        dx_1 = boids_1[i_1].x - boids_1[j].x;
+        dy_1 = boids_1[i_1].y - boids_1[j].y;
         // Are both those differences less than the visual range?
-        if (absfix15(dx) < visualRange && absfix15(dy) < visualRange)
+        if (absfix15(dx_1) < visualRange && absfix15(dy_1) < visualRange)
         {
           // If so, calculate the squared distance
-          squared_distance = multfix15(dx,dx) + multfix15(dy,dy);
+          squared_distance_1 = multfix15(dx_1,dx_1) + multfix15(dy_1,dy_1);
 
           // Is squared distance less than the protected range?
-          if (squared_distance < protectedRangeSquared)
+          if (squared_distance_1 < protectedRangeSquared)
           {
               // If so, calculate difference in x/y-coordinates to nearfield boid
-              close_dx += boids_1[i].x - boids_1[j].x;
-              close_dy += boids_1[i].y - boids_1[j].y;
+              close_dx_1 += boids_1[i_1].x - boids_1[j].x;
+              close_dy_1 += boids_1[i_1].y - boids_1[j].y;
           }
           // If not in protected range, is the boid in the visual range?
-          else if (squared_distance < visualRangeSquared)
+          else if (squared_distance_1 < visualRangeSquared)
           {
               // Add other boid's x/y-coord and x/y vel to accumulator variables
-              xpos_avg += boids_1[j].x;
-              ypos_avg += boids_1[j].y;
-              xvel_avg += boids_1[j].vx;
-              yvel_avg += boids_1[j].vy;
+              xpos_avg_1 += boids_1[j].x;
+              ypos_avg_1 += boids_1[j].y;
+              xvel_avg_1 += boids_1[j].vx;
+              yvel_avg_1 += boids_1[j].vy;
               
               // Increment number of boids within visual range
-              neighboring_boids++;
+              neighboring_boids_1++;
           }
         }
       }
     }
 
     // If there were any boids in the visual range
-    if (neighboring_boids > 0)
+    if (neighboring_boids_1 > 0)
     {
       // Divide accumulator variables by number of boids in visual range
-      neighboring_boids_div = divfix(int2fix15(1), int2fix15(neighboring_boids));
-      xpos_avg = multfix15(xpos_avg,neighboring_boids_div);
-      ypos_avg = multfix15(ypos_avg,neighboring_boids_div);
-      xvel_avg = multfix15(xvel_avg,neighboring_boids_div);
-      yvel_avg = multfix15(yvel_avg,neighboring_boids_div);
+      neighboring_boids_div_1 = divfix(int2fix15(1), int2fix15(neighboring_boids_1));
+      xpos_avg_1 = multfix15(xpos_avg_1,neighboring_boids_div_1);
+      ypos_avg_1 = multfix15(ypos_avg_1,neighboring_boids_div_1);
+      xvel_avg_1 = multfix15(xvel_avg_1,neighboring_boids_div_1);
+      yvel_avg_1 = multfix15(yvel_avg_1,neighboring_boids_div_1);
 
       // Add the centering/matching contributions to velocity
-      boids_1[i].vx = (boids_1[i].vx + 
-                    multfix15(xpos_avg - boids_1[i].x, centeringfactor) + 
-                    multfix15(xvel_avg - boids_1[i].vx, matchingfactor));
-      boids_1[i].vy = (boids_1[i].vy + 
-                    multfix15(ypos_avg - boids_1[i].y, centeringfactor) + 
-                    multfix15(yvel_avg - boids_1[i].vy, matchingfactor));
+      boids_1[i_1].vx = (boids_1[i_1].vx + 
+                    multfix15(xpos_avg_1 - boids_1[i_1].x, centeringfactor) + 
+                    multfix15(xvel_avg_1 - boids_1[i_1].vx, matchingfactor));
+      boids_1[i_1].vy = (boids_1[i_1].vy + 
+                    multfix15(ypos_avg_1 - boids_1[i_1].y, centeringfactor) + 
+                    multfix15(yvel_avg_1 - boids_1[i_1].vy, matchingfactor));
     }
 
     // Add the avoidance contribution to velocity
-    boids_1[i].vx = boids_1[i].vx + multfix15(close_dx, avoidfactor);
-    boids_1[i].vy = boids_1[i].vy + multfix15(close_dy, avoidfactor);
+    boids_1[i_1].vx = boids_1[i_1].vx + multfix15(close_dx_1, avoidfactor);
+    boids_1[i_1].vy = boids_1[i_1].vy + multfix15(close_dy_1, avoidfactor);
     
     // If the boid is near an edge, make it turn by turnfactor
     // (this describes a box, will vary based on boundary conditions)
     if (should_draw == 0) //wrap everywhere
     {
-      if (boids_1[i].y < int2fix15(y_screen_top))
+      if (boids_1[i_1].y < int2fix15(y_screen_top))
       {
-          boids_1[i].y = int2fix15(y_screen_bottom);
+          boids_1[i_1].y = int2fix15(y_screen_bottom);
       }
-      if (boids_1[i].y > int2fix15(y_screen_bottom))
+      if (boids_1[i_1].y > int2fix15(y_screen_bottom))
       {
-          boids_1[i].y = int2fix15(y_screen_top);
+          boids_1[i_1].y = int2fix15(y_screen_top);
       } 
-      if (boids_1[i].x < int2fix15(x_screen_left))
+      if (boids_1[i_1].x < int2fix15(x_screen_left))
       {
-          boids_1[i].x = int2fix15(x_screen_right);
+          boids_1[i_1].x = int2fix15(x_screen_right);
       }
-      if (boids_1[i].x > int2fix15(x_screen_right))
+      if (boids_1[i_1].x > int2fix15(x_screen_right))
       {
-          boids_1[i].x = int2fix15(x_screen_left);
+          boids_1[i_1].x = int2fix15(x_screen_left);
       }  
     }
     else if (should_draw == 1) // if should_draw == 1 --> box
     {
-      if (boids_1[i].y < int2fix15(y_margin_top_box))
+      if (boids_1[i_1].y < int2fix15(y_margin_top_box))
       {
-        boids_1[i].vy = boids_1[i].vy + turnfactor;
+        boids_1[i_1].vy = boids_1[i_1].vy + turnfactor;
       }
-      if (boids_1[i].y > int2fix15(y_margin_bottom_box))
+      if (boids_1[i_1].y > int2fix15(y_margin_bottom_box))
       {
-        boids_1[i].vy = boids_1[i].vy - turnfactor;
+        boids_1[i_1].vy = boids_1[i_1].vy - turnfactor;
       } 
-      if (boids_1[i].x < int2fix15(x_margin_left_box))
+      if (boids_1[i_1].x < int2fix15(x_margin_left_box))
       {
-        boids_1[i].vx = boids_1[i].vx + turnfactor;
+        boids_1[i_1].vx = boids_1[i_1].vx + turnfactor;
       }
-      if (boids_1[i].x > int2fix15(x_margin_right_box))
+      if (boids_1[i_1].x > int2fix15(x_margin_right_box))
       {
-        boids_1[i].vx = boids_1[i].vx - turnfactor;
+        boids_1[i_1].vx = boids_1[i_1].vx - turnfactor;
       }  
     }
     else // should_draw == 2 --> draw 2 lines
     {
-      if (boids_1[i].y < int2fix15(y_screen_top))
+      if (boids_1[i_1].y < int2fix15(y_screen_top))
       {
-          boids_1[i].y = int2fix15(y_screen_bottom);
+          boids_1[i_1].y = int2fix15(y_screen_bottom);
       }
-      if (boids_1[i].y > int2fix15(y_screen_bottom))
+      if (boids_1[i_1].y > int2fix15(y_screen_bottom))
       {
-          boids_1[i].y = int2fix15(y_screen_top);
+          boids_1[i_1].y = int2fix15(y_screen_top);
       } 
-      if (boids_1[i].x < int2fix15(x_margin_left_V_line))
+      if (boids_1[i_1].x < int2fix15(x_margin_left_V_line))
       {
-        boids_1[i].vx = boids_1[i].vx + turnfactor;
+        boids_1[i_1].vx = boids_1[i_1].vx + turnfactor;
       }
-      if (boids_1[i].x > int2fix15(x_margin_right_V_line))
+      if (boids_1[i_1].x > int2fix15(x_margin_right_V_line))
       {
-        boids_1[i].vx = boids_1[i].vx - turnfactor;
+        boids_1[i_1].vx = boids_1[i_1].vx - turnfactor;
       }   
     }
   
@@ -651,45 +662,45 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
     {
       
       // Compute the differences in x and y coordinates
-      dx = boids_1[i].x - predators[k].x;
-      dy = boids_1[i].y - predators[k].y;
+      dx_1 = boids_1[i_1].x - predators[k].x;
+      dy_1 = boids_1[i_1].y - predators[k].y;
 
       // Are both those differences less than the predatory range?
-      if (absfix15(dx) < predatory_range && absfix15(dy) < predatory_range)
+      if (absfix15(dx_1) < predatory_range && absfix15(dy_1) < predatory_range)
       {
         // If so, calculate the squared distance to the predator
-        squared_predator_distance = multfix15(dx,dx) + multfix15(dy,dy);
+        squared_predator_distance_1 = multfix15(dx_1,dx_1) + multfix15(dy_1,dy_1);
 
         // Is the squared distance less than the predatory range squared?
-        if (squared_predator_distance < predatory_range_square)
+        if (squared_predator_distance_1 < predatory_range_square)
         {
-          predator_dx += boids_1[i].x - predators[k].x;
-          predator_dy += boids_1[i].y - predators[k].y;
+          predator_dx_1 += boids_1[i_1].x - predators[k].x;
+          predator_dy_1 += boids_1[i_1].y - predators[k].y;
 
           // Increment the number of predators in the boid's predatory range
-          num_predators += 1;
+          num_predators_1 += 1;
         }
       }
     }
 
     // If there were any predators in the predatory range, turn away
-    if (num_predators > 0)
+    if (num_predators_1 > 0)
     {
-      if (predator_dy > 0)
+      if (predator_dy_1 > 0)
       {
-        boids_1[i].vy = boids_0[i].vy + predator_turnfactor;
+        boids_1[i_1].vy = boids_0[i_1].vy + predator_turnfactor;
       }
-      if (predator_dy < 0)
+      if (predator_dy_1 < 0)
       {
-        boids_1[i].vy = boids_0[i].vy - predator_turnfactor;
+        boids_1[i_1].vy = boids_0[i_1].vy - predator_turnfactor;
       }
-      if (predator_dx > 0)
+      if (predator_dx_1 > 0)
       {
-        boids_1[i].vx = boids_0[i].vx + predator_turnfactor;
+        boids_1[i_1].vx = boids_0[i_1].vx + predator_turnfactor;
       }
-      if (predator_dx < 0)
+      if (predator_dx_1 < 0)
       {
-        boids_1[i].vx = boids_0[i].vx - predator_turnfactor;
+        boids_1[i_1].vx = boids_0[i_1].vx - predator_turnfactor;
       }
     }
     //////////////////////////////////
@@ -697,21 +708,21 @@ void boid_algo(int core, fix15 squared_distance, fix15 dx, fix15 dy, fix15 close
 
     //Calculate the boid's speed
     //Slow step! Lookup the "alpha max plus beta min" algorithm  
-    speed = sqrtfix(multfix15(boids_1[i].vx,boids_1[i].vx) + 
-                    multfix15(boids_1[i].vy,boids_1[i].vy));
+    speed_1 = sqrtfix(multfix15(boids_1[i_1].vx,boids_1[i_1].vx) + 
+                    multfix15(boids_1[i_1].vy,boids_1[i_1].vy));
 
-    if (speed > maxspeed) {
-      boids_1[i].vx = multfix15(divfix(boids_1[i].vx, speed), maxspeed);
-      boids_1[i].vy = multfix15(divfix(boids_1[i].vy, speed), maxspeed);
+    if (speed_1 > maxspeed) {
+      boids_1[i_1].vx = multfix15(divfix(boids_1[i_1].vx, speed_1), maxspeed);
+      boids_1[i_1].vy = multfix15(divfix(boids_1[i_1].vy, speed_1), maxspeed);
     }
-    if (speed < minspeed) {
-      boids_1[i].vx = multfix15(divfix(boids_1[i].vx, speed), minspeed);
-      boids_1[i].vy = multfix15(divfix(boids_1[i].vy, speed), minspeed);
+    if (speed_1 < minspeed) {
+      boids_1[i_1].vx = multfix15(divfix(boids_1[i_1].vx, speed_1), minspeed);
+      boids_1[i_1].vy = multfix15(divfix(boids_1[i_1].vy, speed_1), minspeed);
     }
 
     // Update position using velocity
-    boids_1[i].x = boids_1[i].x + boids_1[i].vx;
-    boids_1[i].y = boids_1[i].y + boids_1[i].vy;
+    boids_1[i_1].x = boids_1[i_1].x + boids_1[i_1].vx;
+    boids_1[i_1].y = boids_1[i_1].y + boids_1[i_1].vy;
   }
   
 }
@@ -904,8 +915,19 @@ static PT_THREAD (protothread_serial(struct pt *pt))
                 drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
               }
               curr_N_boids = (int)(atof(arg1));
-              spawnBoids(0);
-              spawnBoids(1);
+              for (i_0 = 0; i_0 < curr_N_boids/2; i_0++)
+              {
+                spawnBoids(&boids_0[i_0].x,&boids_0[i_0].y,&boids_0[i_0].vx,&boids_0[i_0].vy);
+              }
+              for (l = 0; l < curr_N_predators; l++)
+              {
+                spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
+              }
+              for (i_1 = 0; i_1 < curr_N_boids/2; i_1++)
+              {
+                spawnBoids(&boids_1[i_0].x,&boids_1[i_0].y,&boids_1[i_0].vx,&boids_1[i_0].vy);
+              }
+
             }
         }
         else if(strcmp(cmd,"numberPredators")==0){
@@ -923,8 +945,18 @@ static PT_THREAD (protothread_serial(struct pt *pt))
               }
               
               curr_N_predators = (int)(atof(arg1));
-              spawnBoids(0);
-              spawnBoids(1);
+              for (i_0 = 0; i_0 < curr_N_boids/2; i_0++)
+              {
+                spawnBoids(&boids_0[i_0].x,&boids_0[i_0].y,&boids_0[i_0].vx,&boids_0[i_0].vy);
+              }
+              for (l = 0; l < curr_N_predators; l++)
+              {
+                spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
+              }
+              for (i_1 = 0; i_1 < curr_N_boids/2; i_1++)
+              {
+                spawnBoids(&boids_1[i_0].x,&boids_1[i_0].y,&boids_1[i_0].vx,&boids_1[i_0].vy);
+              }
             }
         }
         else printf("Huh?\n\r") ;
@@ -953,12 +985,20 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     curr_N_predators = 2;
 
     // Spawn a boid
-    spawnBoids(core_0);
+    for (i_0 = 0; i_0 < curr_N_boids/2; i_0++)
+    {
+      spawnBoids(&boids_0[i_0].x,&boids_0[i_0].y,&boids_0[i_0].vx,&boids_0[i_0].vy);
+    }
+    for (l = 0; l < curr_N_predators; l++)
+    {
+      spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
+    }
+    
 
     while(1) {
       // Measure time at start of thread
       begin_time_0 = time_us_32();  
-      for (int i_0 = 0; i_0 < curr_N_boids/2; i_0++)
+      for (i_0 = 0; i_0 < curr_N_boids/2; i_0++)
       {
         // Zero all accumulator variables
         xpos_avg_0 = int2fix15(0);
@@ -979,9 +1019,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         // erase boid
         drawRect(fix2int15(boids_0[i_0].x), fix2int15(boids_0[i_0].y), 2, 2, BLACK);
         // update boid's position and velocity
-        boid_algo(core_0, squared_distance_0, dx_0, dy_0, close_dx_0, close_dy_0, 
-               xpos_avg_0, ypos_avg_0, xvel_avg_0, yvel_avg_0, neighboring_boids_0, 
-               neighboring_boids_div_0, speed_0, i_0) ;
+        boid_algo(core_0) ;
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
@@ -1075,12 +1113,15 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
     curr_N_boids = 100;
 
     // Spawn a boid
-    spawnBoids(core_1);
+    for (i_1 = 0; i_1 < curr_N_boids/2; i_1++)
+    {
+      spawnBoids(&boids_1[i_0].x,&boids_1[i_0].y,&boids_1[i_0].vx,&boids_1[i_0].vy);
+    }
 
     while(1) {
       // Measure time at start of thread
       begin_time_1 = time_us_32();  
-      for (int i_1 = 0; i_1 < curr_N_boids/2; i_1++)
+      for (i_1 = 0; i_1 < curr_N_boids/2; i_1++)
       {
         // Zero all accumulator variables
         xpos_avg_1 = int2fix15(0);
@@ -1097,9 +1138,7 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
         // erase boid
         drawRect(fix2int15(boids_1[i_1].x), fix2int15(boids_1[i_1].y), 2, 2, BLACK);
         // update boid's position and velocity
-        boid_algo(core_1, squared_distance_1, dx_1, dy_1, close_dx_1, close_dy_1, 
-               xpos_avg_1, ypos_avg_1, xvel_avg_1, yvel_avg_1, neighboring_boids_1, 
-               neighboring_boids_div_1, speed_1, i_1) ;
+        boid_algo(core_1) ;
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
@@ -1108,13 +1147,14 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
       // yield for necessary amount of time
       // PT_YIELD_usec(spare_time) ;
       // PT_YIELD_usec(1000000);
-     // NEVER exit while
-    } // END WHILE(1)
-    while(still_running == 1)
-    {
+      // NEVER exit while
+      while(still_running == 1)
+      {
 
-    }
-    still_running = 1;
+      }
+      still_running = 1;
+    } // END WHILE(1)
+    
   PT_END(pt);
 } // animation thread
 
