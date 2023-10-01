@@ -71,9 +71,10 @@ struct boid {
     fix15 vy ;
 };
 
-#define N_boids 300
+#define N_boids 600
 
 struct boid boids[N_boids];
+int curr_N_boids = 0;
 int i = 0;
 
 
@@ -84,8 +85,8 @@ struct predator {
     fix15 vy ;
 };
 
-#define N_predators 2
-
+#define N_predators 10
+int curr_N_predators = 0;
 struct predator predators[N_predators];
 int k = 0;
 int l = 0;
@@ -160,20 +161,21 @@ int x_screen_right = 640;
 void spawnBoids(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int direction)
 {
   // Start in center of screen
-  for (i = 0; i < N_boids; i++)
+  for (i = 0; i < curr_N_boids; i++)
   {
     boids[i].x = int2fix15(rand() % 640);
     boids[i].y = int2fix15(rand() % 480);
     boids[i].vx = int2fix15(rand() % 3 + 3);
     boids[i].vy = int2fix15(rand() % 3 + 3);
   }
-//   for (k = 0; k < N_predators; k++)
-//   {
-//     predators[k].x = int2fix15(rand() % 640);
-//     predators[k].y = int2fix15(rand() % 480);
-//     predators[k].vx = int2fix15(rand() % 3 + 3);
-//     predators[k].vy = int2fix15(rand() % 3 + 3);
-//   }
+  for (k = 0; k < curr_N_predators; k++)
+  {
+    predators[k].x = int2fix15(rand() % 640);
+    predators[k].y = int2fix15(rand() % 480);
+    predators[k].vx = int2fix15(rand() % 3 + 3);
+    predators[k].vy = int2fix15(rand() % 3 + 3);
+  }
+  k = 0;
 }
 
 // Draw the boundaries
@@ -206,7 +208,7 @@ void drawArena(int should_draw)
 void boid_algo(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int i)
 {
   // For every other boid in the flock . . .
-  for (int j = 0; j < N_boids; j++) 
+  for (int j = 0; j < curr_N_boids; j++) 
   {
     // For each boid other than the current boid
     if (j != i) 
@@ -330,51 +332,51 @@ void boid_algo(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int i)
   //////////////////////////////////
   // Predator Part
     
-//   for (int k = 0; k < N_predators; k++)
-//   {
+  for (k = 0; k < curr_N_predators; k++)
+  {
     
-//     // Compute the differences in x and y coordinates
-//     dx = boids[i].x - predators[k].x;
-//     dy = boids[i].y - predators[k].y;
+    // Compute the differences in x and y coordinates
+    dx = boids[i].x - predators[k].x;
+    dy = boids[i].y - predators[k].y;
 
-//     // Are both those differences less than the predatory range?
-//     if (absfix15(dx) < predatory_range && absfix15(dy) < predatory_range)
-//     {
-//       // If so, calculate the squared distance to the predator
-//       squared_predator_distance = multfix15(dx,dx) + multfix15(dy,dy);
+    // Are both those differences less than the predatory range?
+    if (absfix15(dx) < predatory_range && absfix15(dy) < predatory_range)
+    {
+      // If so, calculate the squared distance to the predator
+      squared_predator_distance = multfix15(dx,dx) + multfix15(dy,dy);
 
-//       // Is the squared distance less than the predatory range squared?
-//       if (squared_predator_distance < predatory_range_square)
-//       {
-//         predator_dx += boids[i].x - predators[k].x;
-//         predator_dy += boids[i].y - predators[k].y;
+      // Is the squared distance less than the predatory range squared?
+      if (squared_predator_distance < predatory_range_square)
+      {
+        predator_dx += boids[i].x - predators[k].x;
+        predator_dy += boids[i].y - predators[k].y;
 
-//         // Increment the number of predators in the boid's predatory range
-//         num_predators += 1;
-//       }
-//     }
-//   }
+        // Increment the number of predators in the boid's predatory range
+        num_predators += 1;
+      }
+    }
+  }
 
-//   // If there were any predators in the predatory range, turn away
-//   if (num_predators > 0)
-//   {
-//     if (predator_dy > 0)
-//     {
-//       boids[i].vy = boids[i].vy + predator_turnfactor;
-//     }
-//     if (predator_dy < 0)
-//     {
-//       boids[i].vy = boids[i].vy - predator_turnfactor;
-//     }
-//     if (predator_dx > 0)
-//     {
-//       boids[i].vx = boids[i].vx + predator_turnfactor;
-//     }
-//     if (predator_dx < 0)
-//     {
-//       boids[i].vx = boids[i].vx - predator_turnfactor;
-//     }
-//   }
+  // If there were any predators in the predatory range, turn away
+  if (num_predators > 0)
+  {
+    if (predator_dy > 0)
+    {
+      boids[i].vy = boids[i].vy + predator_turnfactor;
+    }
+    if (predator_dy < 0)
+    {
+      boids[i].vy = boids[i].vy - predator_turnfactor;
+    }
+    if (predator_dx > 0)
+    {
+      boids[i].vx = boids[i].vx + predator_turnfactor;
+    }
+    if (predator_dx < 0)
+    {
+      boids[i].vx = boids[i].vx - predator_turnfactor;
+    }
+  }
   //////////////////////////////////
 
 
@@ -403,86 +405,86 @@ void boid_algo(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int i)
 //   printf("vy: %d\n", fix2int15(boids[i].vy));
 }
 
-void predator_algo(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int i)
+void predator_algo(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int l)
 {
   // If the boid is near an edge, make it turn by turnfactor
   // (this describes a box, will vary based on boundary conditions)
   if (should_draw == 0) //wrap everywhere
   {
-    if (predators[k].y < int2fix15(y_screen_top))
+    if (predators[l].y < int2fix15(y_screen_top))
     {
-        predators[k].y = int2fix15(y_screen_bottom);
+        predators[l].y = int2fix15(y_screen_bottom);
     }
-    if (predators[k].y > int2fix15(y_screen_bottom))
+    if (predators[l].y > int2fix15(y_screen_bottom))
     {
-        predators[k].y = int2fix15(y_screen_top);
+        predators[l].y = int2fix15(y_screen_top);
     } 
-    if (predators[k].x < int2fix15(x_screen_left))
+    if (predators[l].x < int2fix15(x_screen_left))
     {
-        predators[k].x = int2fix15(x_screen_right);
+        predators[l].x = int2fix15(x_screen_right);
     }
-    if (predators[k].x > int2fix15(x_screen_right))
+    if (predators[l].x > int2fix15(x_screen_right))
     {
-        predators[k].x = int2fix15(x_screen_left);
+        predators[l].x = int2fix15(x_screen_left);
     }  
   }
   else if (should_draw == 1) // if should_draw == 1 --> box
   {
-    if (predators[k].y < int2fix15(y_margin_top_box))
+    if (predators[l].y < int2fix15(y_margin_top_box))
     {
-      predators[k].vy = predators[k].vy + *turnfactor;
+      predators[l].vy = predators[l].vy + *turnfactor;
     }
-    if (predators[k].y > int2fix15(y_margin_bottom_box))
+    if (predators[l].y > int2fix15(y_margin_bottom_box))
     {
-      predators[k].vy = predators[k].vy - *turnfactor;
+      predators[l].vy = predators[l].vy - *turnfactor;
     } 
-    if (predators[k].x < int2fix15(x_margin_left_box))
+    if (predators[l].x < int2fix15(x_margin_left_box))
     {
-      predators[k].vx = predators[k].vx + *turnfactor;
+      predators[l].vx = predators[l].vx + *turnfactor;
     }
-    if (predators[k].x > int2fix15(x_margin_right_box))
+    if (predators[l].x > int2fix15(x_margin_right_box))
     {
-      predators[k].vx = predators[k].vx - *turnfactor;
+      predators[l].vx = predators[l].vx - *turnfactor;
     }  
   }
   else // should_draw == 2 --> draw 2 lines
   {
-    if (predators[k].y < int2fix15(y_screen_top))
+    if (predators[l].y < int2fix15(y_screen_top))
     {
-        predators[k].y = int2fix15(y_screen_bottom);
+        predators[l].y = int2fix15(y_screen_bottom);
     }
-    if (predators[k].y > int2fix15(y_screen_bottom))
+    if (predators[l].y > int2fix15(y_screen_bottom))
     {
-        predators[k].y = int2fix15(y_screen_top);
+        predators[l].y = int2fix15(y_screen_top);
     } 
-    if (predators[k].x < int2fix15(x_margin_left_V_line))
+    if (predators[l].x < int2fix15(x_margin_left_V_line))
     {
-      predators[k].vx = predators[k].vx + *turnfactor;
+      predators[l].vx = predators[l].vx + *turnfactor;
     }
-    if (predators[k].x > int2fix15(x_margin_right_V_line))
+    if (predators[l].x > int2fix15(x_margin_right_V_line))
     {
-      predators[k].vx = predators[k].vx - *turnfactor;
+      predators[l].vx = predators[l].vx - *turnfactor;
     }   
   }
   //////////////////////////////////
 
   //Calculate the boid's speed
   //Slow step! Lookup the "alpha max plus beta min" algorithm  
-  speed = sqrtfix(multfix15(predators[k].vx,predators[k].vx) + 
-                  multfix15(predators[k].vy,predators[k].vy));
+  speed = sqrtfix(multfix15(predators[l].vx,predators[l].vx) + 
+                  multfix15(predators[l].vy,predators[l].vy));
 
   if (speed > *maxspeed) {
-    predators[k].vx = multfix15(divfix(predators[k].vx, speed), *maxspeed);
-    predators[k].vy = multfix15(divfix(predators[k].vy, speed), *maxspeed);
+    predators[l].vx = multfix15(divfix(predators[l].vx, speed), *maxspeed);
+    predators[l].vy = multfix15(divfix(predators[l].vy, speed), *maxspeed);
   }
   if (speed < *minspeed) {
-    predators[k].vx = multfix15(divfix(predators[k].vx, speed), *minspeed);
-    predators[k].vy = multfix15(divfix(predators[k].vy, speed), *minspeed);
+    predators[l].vx = multfix15(divfix(predators[l].vx, speed), *minspeed);
+    predators[l].vy = multfix15(divfix(predators[l].vy, speed), *minspeed);
   }
 
   // Update position using velocity
-  predators[k].x = predators[k].x + predators[k].vx;
-  predators[k].y = predators[k].y + predators[k].vy;
+  predators[l].x = predators[l].x + predators[l].vx;
+  predators[l].y = predators[l].y + predators[l].vy;
 
 
   //   printf("x: %d\n", fix2int15(boids[i].x));
@@ -641,6 +643,15 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         // parse by command
         if(strcmp(cmd,"help")==0){
             // List commands
+            printf("draw line\n\r") ;
+            printf("draw box\n\r") ;
+            printf("draw none\n\r") ;
+            printf("turnfactor\n\r") ;
+            printf("visualrange\n\r") ;
+            printf("protectedrange\n\r") ;
+            printf("centeringfactor\n\r") ;
+            printf("numberBoids\n\r") ;
+            printf("numberPredators\n\r") ;
         }
         else if(strcmp(cmd,"draw")==0){
             if(strcmp(arg1,"line")==0){
@@ -686,6 +697,40 @@ static PT_THREAD (protothread_serial(struct pt *pt))
                 boid0_centeringfactor = float2fix15(atof(arg1));
             }
         }
+        else if(strcmp(cmd,"numberBoids")==0){
+            if(arg1 != NULL)
+            {
+              for (int i = 0; i < curr_N_boids; i++)
+              {
+                drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
+              }
+
+              for (l = 0; l < curr_N_predators; l++)
+              {
+                // erase boid
+                drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
+              }
+              curr_N_boids = (int)(atof(arg1));
+              spawnBoids(&boid0_turnfactor, &boid0_maxspeed, &boid0_minspeed, 0);
+            }
+        }
+        else if(strcmp(cmd,"numberPredators")==0){
+            if(arg1 != NULL){
+              for (int i = 0; i < curr_N_boids; i++)
+              {
+                drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
+              }
+
+              for (l = 0; l < curr_N_predators; l++)
+              {
+                // erase boid
+                drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
+              }
+              
+              curr_N_predators = (int)(atof(arg1));
+              spawnBoids(&boid0_turnfactor, &boid0_maxspeed, &boid0_minspeed, 0);
+            }
+        }
         else printf("Huh?\n\r") ;
       } // END WHILE(1)
   PT_END(pt);
@@ -707,13 +752,16 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     char str3[50];
     char str4[50];
 
+    curr_N_boids = 100;
+    curr_N_predators = 2;
+
     // Spawn a boid
     spawnBoids(&boid0_turnfactor, &boid0_maxspeed, &boid0_minspeed, 0);
 
     while(1) {
       // Measure time at start of thread
-      begin_time = time_us_32();   
-      for (int i = 0; i < N_boids; i++)
+      begin_time = time_us_32();  
+      for (int i = 0; i < curr_N_boids; i++)
       {
         // Zero all accumulator variables
         xpos_avg = int2fix15(0);
@@ -737,17 +785,17 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, 2);
       }
 
-    //   for (l = 0; l < N_predators; l++)
-    //   {
-    //     // erase boid
-    //     drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
-    //     // update boid's position and velocity
-    //     predator_algo(&boid0_turnfactor, &boid0_maxspeed, &boid0_minspeed, i) ;
-    //     // draw the boid at its new position    
-    //     // printf("%d\n", boids[i].vx);
-    //     // printf("%d\n", boids[i].vy);
-    //     drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 4, 4, 4);
-    //   }
+      for (l = 0; l < curr_N_predators; l++)
+      {
+        // erase boid
+        drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
+        // update boid's position and velocity
+        predator_algo(&boid0_turnfactor, &boid0_maxspeed, &boid0_minspeed, l) ;
+        // draw the boid at its new position    
+        // printf("%d\n", boids[i].vx);
+        // printf("%d\n", boids[i].vy);
+        drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, 6);
+      }
 
       // draw the boundaries
       drawArena(should_draw) ;
@@ -765,7 +813,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
 
         sprintf(str3, "Frame Rate = %d us/frame", FRAME_RATE);
 
-        sprintf(str4, "Number of boids = %d", N_boids);
+        sprintf(str4, "Number of boids = %d", curr_N_boids);
 
         fillRect(0, 0, 350, 50, BLACK);
         setCursor(10,10);
