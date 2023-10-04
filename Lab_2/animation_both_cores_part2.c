@@ -105,9 +105,8 @@ struct predator {
 
 // Boid Variables and struct
 #define N_boids 600
-struct boid boids[N_boids];
 volatile int curr_N_boids = 100;
-volatile int i = 0;
+struct boid boids[N_boids];
 fix15 turnfactor = float2fix15(0.2);
 fix15 visualRange = int2fix15(40);
 fix15 protectedRange = int2fix15(8);
@@ -121,8 +120,8 @@ fix15 visualRangeSquared = int2fix15(1600);
 
 // Predator Variables and struct
 #define N_predators 10
-struct predator predators[N_predators];
 volatile int curr_N_predators = 1;
+struct predator predators[N_predators];
 fix15 predatory_range = int2fix15(100);
 fix15 predatory_range_square = int2fix15(10000);
 fix15 predator_turnfactor = float2fix15(0.5);
@@ -733,10 +732,9 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         }
         else if(strcmp(cmd,"numberPredators")==0){
             if(arg1 != NULL){
-              for (int i = 0; i < curr_N_boids/2; i++)
+              for (int i = 0; i < curr_N_boids; i++)
               {
-                drawRect(fix2int15(boids_0[i].x), fix2int15(boids_0[i].y), 2, 2, BLACK);
-                drawRect(fix2int15(boids_1[i].x), fix2int15(boids_1[i].y), 2, 2, BLACK);
+                drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
               }
 
               for (l = 0; l < curr_N_predators; l++)
@@ -744,19 +742,14 @@ static PT_THREAD (protothread_serial(struct pt *pt))
                 // erase boid
                 drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
               }
-              
               curr_N_predators = (int)(atof(arg1));
-              for (i_0 = 0; i_0 < curr_N_boids/2; i_0++)
+              for (int i = 0; i < curr_N_boids; i++)
               {
-                spawnBoids(&boids_0[i_0].x,&boids_0[i_0].y,&boids_0[i_0].vx,&boids_0[i_0].vy);
+                spawnBoids(&boids[i].x,&boids[i].y,&boids[i_0].vx,&boids[i_0].vy);
               }
               for (l = 0; l < curr_N_predators; l++)
               {
                 spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
-              }
-              for (i_1 = 0; i_1 < curr_N_boids/2; i_1++)
-              {
-                spawnBoids(&boids_1[i_0].x,&boids_1[i_0].y,&boids_1[i_0].vx,&boids_1[i_0].vy);
               }
             }
         }
@@ -839,7 +832,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         // erase predator
         drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, BLACK);
         // update boid's position and velocity
-        predator_algo(l) ;
+        predator_algo(current_predator) ;
         // draw the boid at its new position    
         drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, 6);
       }
@@ -913,15 +906,11 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
     PT_BEGIN(pt);
 
     // Variables for maintaining frame rate
-    static int begin_time_1 ;
-    static int spare_time_1 ;
-    static int total_time_1 = 0;
-    static int counter_1 = 0;
-    static int core_1 = 1;
-    char str1[50];
-    char str2[50];
-    char str3[50];
-    char str4[50];
+    // static int begin_time_1 ;
+    // static int spare_time_1 ;
+    // static int total_time_1 = 0;
+    // static int counter_1 = 0;
+    // static int core_1 = 1;
 
     still_running_1 = 0;
     while (still_running_0 == 1)
