@@ -51,6 +51,9 @@ typedef signed int fix15 ;
 #define divfix(a,b) (fix15)(div_s64s64( (((signed long long)(a)) << 15), ((signed long long)(b))))
 #define sqrtfix(a) (float2fix15(sqrt(fix2float15(a))))
 
+// LED 
+#define LED 25
+
 // Wall detection
 #define hitBottom(b) (b>int2fix15(380))
 #define hitTop(b) (b<int2fix15(100))
@@ -167,6 +170,8 @@ void wallsAndEdges(fix15* x, fix15* y, fix15* vx, fix15* vy, fix15* turnfactor, 
 // ==================================================
 static PT_THREAD (protothread_serial(struct pt *pt))
 {
+    gpio_put(LED, !gpio_get(LED));
+
     PT_BEGIN(pt);
     // stores user input
     static int user_input ;
@@ -339,6 +344,11 @@ int main(){
 
   // initialize VGA
   initVGA() ;
+
+  // Map LED to GPIO port, make it low
+  gpio_init(LED);
+  gpio_set_dir(LED, GPIO_OUT);
+  gpio_put(LED, 0);
 
   // start core 1 
   // multicore_reset_core1();

@@ -51,6 +51,9 @@ typedef signed int fix15 ;
 #define divfix(a,b) (fix15)(div_s64s64( (((signed long long)(a)) << 15), ((signed long long)(b))))
 #define sqrtfix(a) (float2fix15(sqrt(fix2float15(a))))
 
+// LED 
+#define LED 25
+
 // Wall detection
 #define hitBottom(b) (b>int2fix15(380))
 #define hitTop(b) (b<int2fix15(100))
@@ -498,6 +501,7 @@ void predator_algo(fix15* turnfactor, fix15* maxspeed, fix15* minspeed, int l)
 // ==================================================
 static PT_THREAD (protothread_serial(struct pt *pt))
 {
+    gpio_put(LED, !gpio_get(LED));
     PT_BEGIN(pt);
     // stores user input
     static int int_input ;
@@ -650,6 +654,8 @@ static PT_THREAD (protothread_serial(struct pt *pt))
             printf("visualrange\n\r") ;
             printf("protectedrange\n\r") ;
             printf("centeringfactor\n\r") ;
+            printf("avoidfactor\n\r") ;
+            printf("matchingfactor\n\r") ;
             printf("numberBoids\n\r") ;
             printf("numberPredators\n\r") ;
         }
@@ -695,6 +701,16 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         else if(strcmp(cmd,"centeringfactor")==0){
             if(arg1 != NULL){
                 boid0_centeringfactor = float2fix15(atof(arg1));
+            }
+        }
+        else if(strcmp(cmd,"avoidfactor")==0){
+            if(arg1 != NULL){
+                boid0_avoidfactor = float2fix15(atof(arg1));
+            }
+        }
+        else if(strcmp(cmd,"matchingfactor")==0){
+            if(arg1 != NULL){
+                boid0_matchingfactor = float2fix15(atof(arg1));
             }
         }
         else if(strcmp(cmd,"numberBoids")==0){
@@ -782,7 +798,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
-        drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, 2);
+        drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, GREEN);
       }
 
       for (l = 0; l < curr_N_predators; l++)
@@ -794,7 +810,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
-        drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, 6);
+        drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, RED);
       }
 
       // draw the boundaries
@@ -902,6 +918,11 @@ int main(){
 
   // initialize VGA
   initVGA() ;
+
+  // Map LED to GPIO port, make it low
+  gpio_init(LED);
+  gpio_set_dir(LED, GPIO_OUT);
+  gpio_put(LED, 0);
 
   // start core 1 
   // multicore_reset_core1();
