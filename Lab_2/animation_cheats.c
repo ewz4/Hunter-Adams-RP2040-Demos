@@ -63,10 +63,10 @@ typedef signed int fix15 ;
 #define FRAME_RATE 33000
 
 // the color of the boid
-char color = WHITE ;
+// char color = WHITE ;
 
 // LED 
-#define LED 25
+// #define LED 25
 
 // Build boid and predator structs
 struct boid {
@@ -102,9 +102,9 @@ struct predator {
 
 
 // Boid Variables and struct
-#define N_boids 1200
-uint16_t curr_N_boids = 1000;
-uint16_t half_N_boids = 500;
+#define N_boids 1209
+uint16_t curr_N_boids = 1209;
+uint16_t half_N_boids = 604;
 struct boid boids[N_boids];
 fix15 turnfactor = float2fix15(0.2);
 fix15 visualRange = int2fix15(40);
@@ -119,7 +119,7 @@ fix15 minspeed = int2fix15(3);
 
 // Predator Variables and struct
 #define N_predators 5
-uint8_t curr_N_predators = 3;
+uint8_t curr_N_predators = 0;
 struct predator predators[N_predators];
 fix15 predatory_range = int2fix15(100);
 // fix15 predatory_range_square = int2fix15(10000);
@@ -199,7 +199,7 @@ void drawArena(int should_draw)
 
 
 // Boid_algo initial calculation for i_0 boid
-void boid_algo_init_calc_core0(int i_0, int i_1)
+void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1, bool second_cycle)
 {
   fix15 squared_distance_0 ;
   fix15 dx_i_0 ;
@@ -209,8 +209,15 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
   fix15 dx_p_0 ;
   fix15 dy_p_0 ;
 
+  uint16_t lower = i_0 + 1;
+  uint16_t upper = half_N_boids;
 
-  for (int j = i_0 + 1; j < (i_1 + 1); j++)
+  if (second_cycle) {
+      lower = half_N_boids;
+      upper = i_1 + 1;
+  }
+
+  for (uint16_t j = lower; j < upper; j++)
   {
     dx_i_0 = boids[i_0].x - boids[j].x;
     dy_i_0 = boids[i_0].y - boids[j].y;
@@ -287,7 +294,7 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
 
 
 // Boid_algo initial calculation for i_1 boid
-void boid_algo_init_calc_core1(int i_0, int i_1)
+void boid_algo_init_calc_core1(uint16_t i_0, uint16_t i_1, bool second_cycle)
 {
   fix15 squared_distance_1 ;
   fix15 dx_i_1 ;
@@ -297,7 +304,15 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
   fix15 dx_p_1 ;
   fix15 dy_p_1 ;
 
-  for (int j = i_1 - 1; j > i_0; j--)
+  uint16_t upper = i_1 - 1;
+  uint16_t lower = half_N_boids - 1;
+
+  if (second_cycle) {
+      upper = half_N_boids - 1;
+      lower = i_0;
+  }
+
+  for (uint16_t j = upper; j > lower; j--)
   {
     dx_i_1 = boids[i_1].x - boids[j].x;
     dy_i_1 = boids[i_1].y - boids[j].y;
@@ -647,7 +662,7 @@ void predator_algo(int l)
 // ==================================================
 static PT_THREAD (protothread_serial(struct pt *pt))
 {
-    gpio_put(LED, !gpio_get(LED));
+    // gpio_put(LED, !gpio_get(LED));
     PT_BEGIN(pt);
     // stores user input
     // static int int_input ;
@@ -818,14 +833,14 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     static int total_time_0 = 0;
     static int counter_0 = 0;
     static int core_0 = 0;
-    char str1[25];
-    char str2[25];
-    char str3[25];
-    char str4[25];
+    char str1[10];
+    char str2[18];
+    //char str3[25];
+    char str4[11];
 
 
 
-    int current_boid_0;
+    uint16_t current_boid_0;
     for (current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
     {
       spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
@@ -844,18 +859,21 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     }
     still_running_1_spawn = true;
 
+    bool second_cycle = false;
+
     while(1) {
 
       // Measure time at start of thread
       begin_time_0 = time_us_32();  
-      int current_boid_1 = curr_N_boids - 1;
+      uint16_t current_boid_1 = curr_N_boids - 1;
+      
       for (current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
       {
-        
         // update boid's position and velocity
-        boid_algo_init_calc_core0(current_boid_0, current_boid_1) ;
+        boid_algo_init_calc_core0(current_boid_0, current_boid_1, second_cycle) ;
         current_boid_1--;
       }
+      second_cycle = !second_cycle;
 
       still_running_0_current_update = false;  
       // Wait until core 1 has finished updating
@@ -920,13 +938,11 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     
       total_time_0 = time_us_32() / 1000000;
 
-      sprintf(str1, "Time Elapsed=%ds", total_time_0);
+      sprintf(str1, "Time=%d", total_time_0);
 
-      sprintf(str2, "Spare Time=%dus", spare_time_0);
+      sprintf(str2, "Spare Time=%d", spare_time_0);
 
-      sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
-
-      sprintf(str4, "# boids=%d", curr_N_boids);
+      sprintf(str4, "Boids=%d", curr_N_boids);
 
       fillRect(0, 0, 150, 70, BLACK);
       setCursor(10,10);
@@ -939,12 +955,12 @@ static PT_THREAD (protothread_anim(struct pt *pt))
       setTextSize(1);
       writeString(str2);
 
-      setCursor(10,40);
-      setTextColor(WHITE);
-      setTextSize(1);
-      writeString(str3);
+    //   setCursor(10,40);
+    //   setTextColor(WHITE);
+    //   setTextSize(1);
+    //   writeString(str3);
 
-      setCursor(10,55);
+      setCursor(10,40);
       setTextColor(WHITE);
       setTextSize(1);
       writeString(str4);
@@ -990,7 +1006,7 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
     char str3[50];
     char str4[50];
 
-    int current_boid_1;
+    uint16_t current_boid_1;
     for (current_boid_1 = curr_N_boids-1; current_boid_1 > half_N_boids-1; current_boid_1--)
     {
       spawnBoids(&boids[current_boid_1].x,&boids[current_boid_1].y,&boids[current_boid_1].vx,&boids[current_boid_1].vy);
@@ -1001,21 +1017,21 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
 
     }
     still_running_0_spawn = true;
+    bool second_cycle = false;
 
     while(1) {
       // Measure time at start of thread
       begin_time_1 = time_us_32();  
-      int current_boid_0 = 0;
+      uint16_t current_boid_0 = 0;
       for (current_boid_1 = curr_N_boids-1; current_boid_1 > half_N_boids-1; current_boid_1--)
       {
         
-        
-        
         // update boid's position and velocity
-        boid_algo_init_calc_core1(current_boid_0, current_boid_1) ;
+        boid_algo_init_calc_core1(current_boid_0, current_boid_1, second_cycle) ;
 
         current_boid_0++;
       }
+      second_cycle = !second_cycle;
 
       still_running_1_current_update = false;
       // Wait until core 0 has finished updating
@@ -1154,9 +1170,9 @@ int main(){
   initVGA() ;
 
   // Map LED to GPIO port, make it low
-  gpio_init(LED);
-  gpio_set_dir(LED, GPIO_OUT);
-  gpio_put(LED, 0);
+//   gpio_init(LED);
+//   gpio_set_dir(LED, GPIO_OUT);
+//   gpio_put(LED, 0);
 
   // start core 1 
   multicore_reset_core1();
