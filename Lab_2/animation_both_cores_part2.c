@@ -63,6 +63,9 @@ typedef signed int fix15 ;
 // the color of the boid
 char color = WHITE ;
 
+// LED 
+#define LED 25
+
 // Build boid and predator structs
 struct boid {
     fix15 x ;
@@ -120,7 +123,7 @@ fix15 visualRangeSquared = int2fix15(1600);
 
 // Predator Variables and struct
 #define N_predators 10
-volatile int curr_N_predators = 1;
+volatile int curr_N_predators = 0;
 struct predator predators[N_predators];
 fix15 predatory_range = int2fix15(100);
 fix15 predatory_range_square = int2fix15(10000);
@@ -209,7 +212,13 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
   fix15 squared_distance_0 ;
   fix15 dx_i_0 ;
   fix15 dy_i_0 ;
-  for (int j = i_0 + 1; j < curr_N_boids; j++)
+
+  fix15 squared_predator_distance_0 ;
+  fix15 dx_p_0 ;
+  fix15 dy_p_0 ;
+
+
+  for (int j = i_0 + 1; j < (curr_N_boids - i_1); j++)
   {
     dx_i_0 = boids[i_0].x - boids[j].x;
     dy_i_0 = boids[i_0].y - boids[j].y;
@@ -238,10 +247,10 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
           boids[i_0].xvel_avg_0 += boids[j].vx;
           boids[i_0].yvel_avg_0 += boids[j].vy;
           
-          boids[j].xpos_avg_0 += -boids[i_0].x;
-          boids[j].ypos_avg_0 += -boids[i_0].y;
-          boids[j].xvel_avg_0 += -boids[i_0].vx;
-          boids[j].yvel_avg_0 += -boids[i_0].vy;
+          boids[j].xpos_avg_0 += boids[i_0].x;
+          boids[j].ypos_avg_0 += boids[i_0].y;
+          boids[j].xvel_avg_0 += boids[i_0].vx;
+          boids[j].yvel_avg_0 += boids[i_0].vy;
           
           // Increment number of boids within visual range
           boids[i_0].neighboring_boids_0++;
@@ -253,23 +262,23 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
   {
     
     // Compute the differences in x and y coordinates
-    dx_p_1 = boids_1[i_1].x - predators[k].x;
-    dy_p_1 = boids_1[i_1].y - predators[k].y;
+    dx_p_0 = boids[i_0].x - predators[k].x;
+    dy_p_0 = boids[i_0].y - predators[k].y;
 
     // Are both those differences less than the predatory range?
-    if (absfix15(dx_p_1) < predatory_range && absfix15(dx_p_1) < predatory_range)
+    if (absfix15(dx_p_0) < predatory_range && absfix15(dx_p_0) < predatory_range)
     {
       // If so, calculate the squared distance to the predator
-      squared_predator_distance_1 = multfix15(dx_p_1,dx_p_1) + multfix15(dy_p_1,dy_p_1);
+      squared_predator_distance_0 = multfix15(dx_p_0,dx_p_0) + multfix15(dy_p_0,dy_p_0);
 
       // Is the squared distance less than the predatory range squared?
-      if (squared_predator_distance_1 < predatory_range_square)
+      if (squared_predator_distance_0 < predatory_range_square)
       {
-        boids[i_1].predator_dx += boids_1[i_1].x - predators[k].x;
-        boids[i_1].predator_dy += boids_1[i_1].y - predators[k].y;
+        boids[i_0].predator_dx += boids[i_0].x - predators[k].x;
+        boids[i_0].predator_dy += boids[i_0].y - predators[k].y;
 
         // Increment the number of predators in the boid's predatory range
-        boids[i_1].num_predators++;
+        boids[i_0].num_predators++;
       }
     }
   }
@@ -291,7 +300,7 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
   fix15 dx_p_1 ;
   fix15 dy_p_1 ;
 
-  for (int j = i_1 - 1; j > i_0 - 1; j++)
+  for (int j = i_1 - 1; j > i_0; j--)
   {
     dx_i_1 = boids[i_1].x - boids[j].x;
     dy_i_1 = boids[i_1].y - boids[j].y;
@@ -320,10 +329,10 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
           boids[i_1].xvel_avg_1 += boids[j].vx;
           boids[i_1].yvel_avg_1 += boids[j].vy;
           
-          boids[j].xpos_avg_1 += -boids[i_1].x;
-          boids[j].ypos_avg_1 += -boids[i_1].y;
-          boids[j].xvel_avg_1 += -boids[i_1].vx;
-          boids[j].yvel_avg_1 += -boids[i_1].vy;
+          boids[j].xpos_avg_1 += boids[i_1].x;
+          boids[j].ypos_avg_1 += boids[i_1].y;
+          boids[j].xvel_avg_1 += boids[i_1].vx;
+          boids[j].yvel_avg_1 += boids[i_1].vy;
           
           // Increment number of boids within visual range
           boids[i_1].neighboring_boids_1++;
@@ -335,8 +344,8 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
   {
     
     // Compute the differences in x and y coordinates
-    dx_p_1 = boids_1[i_1].x - predators[k].x;
-    dy_p_1 = boids_1[i_1].y - predators[k].y;
+    dx_p_1 = boids[i_1].x - predators[k].x;
+    dy_p_1 = boids[i_1].y - predators[k].y;
 
     // Are both those differences less than the predatory range?
     if (absfix15(dx_p_1) < predatory_range && absfix15(dx_p_1) < predatory_range)
@@ -347,8 +356,8 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
       // Is the squared distance less than the predatory range squared?
       if (squared_predator_distance_1 < predatory_range_square)
       {
-        boids[i_1].predator_dx += boids_1[i_1].x - predators[k].x;
-        boids[i_1].predator_dy += boids_1[i_1].y - predators[k].y;
+        boids[i_1].predator_dx += boids[i_1].x - predators[k].x;
+        boids[i_1].predator_dy += boids[i_1].y - predators[k].y;
 
         // Increment the number of predators in the boid's predatory range
         boids[i_1].num_predators++;
@@ -608,6 +617,7 @@ void predator_algo(int l)
 // ==================================================
 static PT_THREAD (protothread_serial(struct pt *pt))
 {
+    gpio_put(LED, !gpio_get(LED));
     PT_BEGIN(pt);
     // stores user input
     static int int_input ;
@@ -698,12 +708,12 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         }
         else if(strcmp(cmd,"avoidfactor")==0){
             if(arg1 != NULL){
-                boid0_avoidfactor = float2fix15(atof(arg1));
+                avoidfactor = float2fix15(atof(arg1));
             }
         }
         else if(strcmp(cmd,"matchingfactor")==0){
             if(arg1 != NULL){
-                boid0_matchingfactor = float2fix15(atof(arg1));
+                matchingfactor = float2fix15(atof(arg1));
             }
         }
         else if(strcmp(cmd,"numberBoids")==0){
@@ -714,7 +724,7 @@ static PT_THREAD (protothread_serial(struct pt *pt))
                 drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
               }
 
-              for (l = 0; l < curr_N_predators; l++)
+              for (int l = 0; l < curr_N_predators; l++)
               {
                 // erase boid
                 drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
@@ -722,9 +732,9 @@ static PT_THREAD (protothread_serial(struct pt *pt))
               curr_N_boids = (int)(atof(arg1));
               for (int i = 0; i < curr_N_boids; i++)
               {
-                spawnBoids(&boids[i].x,&boids[i].y,&boids[i_0].vx,&boids[i_0].vy);
+                spawnBoids(&boids[i].x,&boids[i].y,&boids[i].vx,&boids[i].vy);
               }
-              for (l = 0; l < curr_N_predators; l++)
+              for (int l = 0; l < curr_N_predators; l++)
               {
                 spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
               }
@@ -737,7 +747,7 @@ static PT_THREAD (protothread_serial(struct pt *pt))
                 drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
               }
 
-              for (l = 0; l < curr_N_predators; l++)
+              for (int l = 0; l < curr_N_predators; l++)
               {
                 // erase boid
                 drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
@@ -745,9 +755,9 @@ static PT_THREAD (protothread_serial(struct pt *pt))
               curr_N_predators = (int)(atof(arg1));
               for (int i = 0; i < curr_N_boids; i++)
               {
-                spawnBoids(&boids[i].x,&boids[i].y,&boids[i_0].vx,&boids[i_0].vy);
+                spawnBoids(&boids[i].x,&boids[i].y,&boids[i].vx,&boids[i].vy);
               }
-              for (l = 0; l < curr_N_predators; l++)
+              for (int l = 0; l < curr_N_predators; l++)
               {
                 spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
               }
@@ -780,8 +790,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     char str3[50];
     char str4[50];
 
-    curr_N_boids = N_boids;
-    curr_N_predators = N_predators;
+    static int last_boid_1 = 0;
 
     // Spawn all boids
     for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
@@ -789,16 +798,11 @@ static PT_THREAD (protothread_anim(struct pt *pt))
       spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
     }
     // Spawn all predators
-    for (l = 0; l < curr_N_predators; l++)
+    for (int l = 0; l < curr_N_predators; l++)
     {
       spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
     }
     still_running_0 = 0;
-    while (still_running_1 == 1)
-    {
-
-    }
-    still_running_1 = 1;
     
 
     while(1) {
@@ -809,21 +813,19 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         // erase boid
         drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, BLACK);
         // update boid's position and velocity
-        boid_algo_init_calc_core0(current_boid_0, current_boid_1) ;
+        boid_algo_init_calc_core0(current_boid_0, last_boid_1) ;
+        last_boid_1++;
       }
+      last_boid_1 = 0;
       for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
       {
         boid_combine_values(current_boid_0);
       }  
       still_running_0 = 0;
-      while (still_running_1 == 1)
-      {
 
-      }
-      still_running_1 = 1;
       for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
       {
-        boid_algo_update_core0(current_boid_0);
+        boid_algo_update(current_boid_0);
         // draw the boid at its new position    
         drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, 2);
       }
@@ -880,12 +882,12 @@ static PT_THREAD (protothread_anim(struct pt *pt))
 
     counter_0++;
 
-    sstill_running_0 = 0;
-    while (still_running_1 == 1)
-    {
+    // still_running_0 = 0;
+    // while (still_running_1 == 1)
+    // {
 
-    }
-    still_running_1 = 1;
+    // }
+    // still_running_1 = 1;
     // yield for necessary amount of time
     PT_YIELD_usec(spare_time_0) ;
     // PT_YIELD_usec(1000000);
@@ -911,6 +913,7 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
     // static int total_time_1 = 0;
     // static int counter_1 = 0;
     // static int core_1 = 1;
+    static int last_boid_0 = 0;
 
     still_running_1 = 0;
     while (still_running_0 == 1)
@@ -921,14 +924,16 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
 
     while(1) {
       // Measure time at start of thread
-      begin_time_1 = time_us_32();  
+      // begin_time_1 = time_us_32();  
       for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
       {
         // erase boid
         drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, BLACK);
         // update boid's position and velocity
-        boid_algo_init_calc_core1(current_boid_0, current_boid_1) ;
+        boid_algo_init_calc_core1(last_boid_0, current_boid_1) ;
+        last_boid_0++;
       }
+      last_boid_0 = 0;
       still_running_1 = 0;
       while (still_running_0 == 1)
       {
@@ -937,7 +942,7 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
       still_running_0 = 1;
       for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
       {
-        boid_algo_update_core1(current_boid_1);
+        boid_algo_update(current_boid_1);
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
@@ -985,6 +990,11 @@ int main(){
 
   // initialize VGA
   initVGA() ;
+
+  // Map LED to GPIO port, make it low
+  gpio_init(LED);
+  gpio_set_dir(LED, GPIO_OUT);
+  gpio_put(LED, 0);
 
   // start core 1 
   multicore_reset_core1();
