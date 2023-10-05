@@ -39,6 +39,8 @@
 // Include protothreads
 #include "pt_cornell_rp2040_v1.h"
 
+#include <stdint.h>
+
 // === the fixed point macros ========================================
 typedef signed int fix15 ;
 #define multfix15(a,b) ((fix15)((((signed long long)(a))*((signed long long)(b)))>>15))
@@ -78,24 +80,17 @@ struct boid {
     fix15 ypos_avg_0 ;
     fix15 xvel_avg_0 ;
     fix15 yvel_avg_0 ;
-    int neighboring_boids_0 ;
+    uint16_t neighboring_boids_0 ;
     fix15 close_dx_1 ;
     fix15 close_dy_1 ;
     fix15 xpos_avg_1 ;
     fix15 ypos_avg_1 ;
     fix15 xvel_avg_1 ;
     fix15 yvel_avg_1 ;
-    int neighboring_boids_1 ;
-    fix15 close_dx ;
-    fix15 close_dy ;
-    fix15 xpos_avg ;
-    fix15 ypos_avg ;
-    fix15 xvel_avg ;
-    fix15 yvel_avg ;
-    int neighboring_boids ; 
+    uint16_t neighboring_boids_1 ;
     fix15 predator_dx ;
     fix15 predator_dy ;
-    int num_predators ;
+    uint8_t num_predators ;
 };
 
 struct predator {
@@ -107,8 +102,9 @@ struct predator {
 
 
 // Boid Variables and struct
-#define N_boids 1000
-volatile int curr_N_boids = 100;
+#define N_boids 1200
+uint16_t curr_N_boids = 1000;
+uint16_t half_N_boids = 500;
 struct boid boids[N_boids];
 fix15 turnfactor = float2fix15(0.2);
 fix15 visualRange = int2fix15(40);
@@ -122,8 +118,8 @@ fix15 protectedRangeSquared = int2fix15(64);
 fix15 visualRangeSquared = int2fix15(1600);
 
 // Predator Variables and struct
-#define N_predators 10
-volatile int curr_N_predators = 0;
+#define N_predators 5
+uint8_t curr_N_predators = 3;
 struct predator predators[N_predators];
 fix15 predatory_range = int2fix15(100);
 fix15 predatory_range_square = int2fix15(10000);
@@ -131,38 +127,36 @@ fix15 predator_turnfactor = float2fix15(0.5);
 
 
 // All variables for both core stuff
-// volatile int current_boid_0 ;
-// volatile int current_boid_1 ;
-volatile int still_running_0 = 1; // Flag to stop core 1 until core 0 is ready to move on
-volatile int still_running_1 = 1;
-volatile int still_running_0_current_update = 1;
-volatile int still_running_0_spawn = 1;
-volatile int still_running_0_draw = 1;
-volatile int still_running_1_current_update = 1;
-volatile int still_running_1_spawn = 1;
-volatile int still_running_1_draw = 1;
+volatile bool still_running_0_current_update = true;
+volatile bool still_running_0_spawn = true;
+volatile bool still_running_0_draw = true;
+volatile bool still_running_1_current_update = true;
+volatile bool still_running_1_spawn = true;
+volatile bool still_running_1_draw = true;
+volatile bool still_running_0_string_output = true;
+volatile bool still_running_1_string_output = true;
 
 
 // Margin Size
-int x_margin_left_box = 100;
-int x_margin_right_box = 540;
-int x_change_margin_box = 440; 
-int y_margin_top_box = 100;
-int y_margin_bottom_box = 380;
-int y_change_margin_box = 280;
-int should_draw = 1; //Margins default to 1
+uint16_t x_margin_left_box = 100;
+uint16_t x_margin_right_box = 540;
+uint16_t x_change_margin_box = 440; 
+uint16_t y_margin_top_box = 100;
+uint16_t y_margin_bottom_box = 380;
+uint16_t y_change_margin_box = 280;
+uint8_t should_draw = 1; //Margins default to 1
 
 // Vertical Line Size
-int x_margin_left_V_line = 200;
-int x_margin_right_V_line = 440;
-int y_margin_top_line = 0;
-int y_change_margin_line = 480;
+uint16_t x_margin_left_V_line = 200;
+uint16_t x_margin_right_V_line = 440;
+uint16_t y_margin_top_line = 0;
+uint16_t y_change_margin_line = 480;
 
 // Screen Size
-int y_screen_top = 0;
-int y_screen_bottom = 480;
-int x_screen_left = 0;
-int x_screen_right = 640;
+uint16_t y_screen_top = 0;
+uint16_t y_screen_bottom = 480;
+uint16_t x_screen_left = 0;
+uint16_t x_screen_right = 640;
 
 
 
@@ -187,10 +181,6 @@ void drawArena(int should_draw)
 {
   if (should_draw == 1)
   {
-    // Clear vertical lines
-    drawVLine(x_margin_left_V_line, y_margin_top_line, y_change_margin_line, BLACK) ;
-    drawVLine(x_margin_right_V_line, y_margin_top_line, y_change_margin_line, BLACK) ;
-
     drawVLine(x_margin_left_box, y_margin_top_box, y_change_margin_box, WHITE) ;
     drawVLine(x_margin_right_box, y_margin_top_box, y_change_margin_box, WHITE) ;
     drawHLine(x_margin_left_box, y_margin_top_box, x_change_margin_box, WHITE) ;
@@ -200,7 +190,6 @@ void drawArena(int should_draw)
   {
     drawVLine(x_margin_left_V_line, y_margin_top_line, y_change_margin_line, WHITE) ;
     drawVLine(x_margin_right_V_line, y_margin_top_line, y_change_margin_line, WHITE) ;
-
   }
   else if (should_draw == 0)
   {
@@ -233,10 +222,10 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
     if (absfix15(dx_i_0) < visualRange && absfix15(dy_i_0) < visualRange)
     {
       // If so, calculate the squared distance
-      squared_distance_0 = multfix15(dx_i_0,dx_i_0) + multfix15(dy_i_0,dy_i_0);
+      // squared_distance_0 = multfix15(dx_i_0,dx_i_0) + multfix15(dy_i_0,dy_i_0);
 
       // Is squared distance less than the protected range?
-      if (squared_distance_0 < protectedRangeSquared)
+      if (absfix15(dx_i_0) < protectedRange && absfix15(dy_i_0) < protectedRange)
       {
           // If so, calculate difference in x/y-coordinates to nearfield boid
           boids[i_0].close_dx_0 += dx_i_0;
@@ -246,7 +235,7 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
           
       }
       // If not in protected range, is the boid in the visual range?
-      else if (squared_distance_0 < visualRangeSquared)
+      else //if (squared_distance_0 < visualRangeSquared)
       {
           // Add other boid's x/y-coord and x/y vel to accumulator variables
           boids[i_0].xpos_avg_0 += boids[j].x;
@@ -275,18 +264,23 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
     // Are both those differences less than the predatory range?
     if (absfix15(dx_p_0) < predatory_range && absfix15(dx_p_0) < predatory_range)
     {
+      boids[i_0].predator_dx += boids[i_0].x - predators[k].x;
+      boids[i_0].predator_dy += boids[i_0].y - predators[k].y;
+
+      // Increment the number of predators in the boid's predatory range
+      boids[i_0].num_predators++;
       // If so, calculate the squared distance to the predator
-      squared_predator_distance_0 = multfix15(dx_p_0,dx_p_0) + multfix15(dy_p_0,dy_p_0);
+      // squared_predator_distance_0 = multfix15(dx_p_0,dx_p_0) + multfix15(dy_p_0,dy_p_0);
 
-      // Is the squared distance less than the predatory range squared?
-      if (squared_predator_distance_0 < predatory_range_square)
-      {
-        boids[i_0].predator_dx += boids[i_0].x - predators[k].x;
-        boids[i_0].predator_dy += boids[i_0].y - predators[k].y;
+      // // Is the squared distance less than the predatory range squared?
+      // if (squared_predator_distance_0 < predatory_range_square)
+      // {
+      //   boids[i_0].predator_dx += boids[i_0].x - predators[k].x;
+      //   boids[i_0].predator_dy += boids[i_0].y - predators[k].y;
 
-        // Increment the number of predators in the boid's predatory range
-        boids[i_0].num_predators++;
-      }
+      //   // Increment the number of predators in the boid's predatory range
+      //   boids[i_0].num_predators++;
+      // }
     }
   }
 }
@@ -315,10 +309,10 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
     if (absfix15(dx_i_1) < visualRange && absfix15(dy_i_1) < visualRange)
     {
       // If so, calculate the squared distance
-      squared_distance_1 = multfix15(dx_i_1,dx_i_1) + multfix15(dy_i_1,dy_i_1);
+      // squared_distance_1 = multfix15(dx_i_1,dx_i_1) + multfix15(dy_i_1,dy_i_1);
 
       // Is squared distance less than the protected range?
-      if (squared_distance_1 < protectedRangeSquared)
+      if (absfix15(dx_i_1) < protectedRange && absfix15(dy_i_1) < protectedRange)
       {
           // If so, calculate difference in x/y-coordinates to nearfield boid
           boids[i_1].close_dx_1 += dx_i_1;
@@ -328,7 +322,7 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
           
       }
       // If not in protected range, is the boid in the visual range?
-      else if (squared_distance_1 < visualRangeSquared)
+      else //if (squared_distance_1 < visualRangeSquared)
       {
           // Add other boid's x/y-coord and x/y vel to accumulator variables
           boids[i_1].xpos_avg_1 += boids[j].x;
@@ -357,18 +351,24 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
     // Are both those differences less than the predatory range?
     if (absfix15(dx_p_1) < predatory_range && absfix15(dx_p_1) < predatory_range)
     {
+      boids[i_1].predator_dx += boids[i_1].x - predators[k].x;
+      boids[i_1].predator_dy += boids[i_1].y - predators[k].y;
+
+      // Increment the number of predators in the boid's predatory range
+      boids[i_1].num_predators++;
+
       // If so, calculate the squared distance to the predator
-      squared_predator_distance_1 = multfix15(dx_p_1,dx_p_1) + multfix15(dy_p_1,dy_p_1);
+      // squared_predator_distance_1 = multfix15(dx_p_1,dx_p_1) + multfix15(dy_p_1,dy_p_1);
 
-      // Is the squared distance less than the predatory range squared?
-      if (squared_predator_distance_1 < predatory_range_square)
-      {
-        boids[i_1].predator_dx += boids[i_1].x - predators[k].x;
-        boids[i_1].predator_dy += boids[i_1].y - predators[k].y;
+      // // Is the squared distance less than the predatory range squared?
+      // if (squared_predator_distance_1 < predatory_range_square)
+      // {
+      //   boids[i_1].predator_dx += boids[i_1].x - predators[k].x;
+      //   boids[i_1].predator_dy += boids[i_1].y - predators[k].y;
 
-        // Increment the number of predators in the boid's predatory range
-        boids[i_1].num_predators++;
-      }
+      //   // Increment the number of predators in the boid's predatory range
+      //   boids[i_1].num_predators++;
+      // }
     }
   }
 }
@@ -378,21 +378,28 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// Combine the initial calc values
-void boid_combine_values(int i_combine)
-{
-  boids[i_combine].close_dx = boids[i_combine].close_dx_0 + boids[i_combine].close_dx_1;
-  boids[i_combine].close_dy = boids[i_combine].close_dy_0 + boids[i_combine].close_dy_1;
-  boids[i_combine].xpos_avg = boids[i_combine].xpos_avg_0+ boids[i_combine].xpos_avg_1;
-  boids[i_combine].ypos_avg = boids[i_combine].ypos_avg_0 + boids[i_combine].ypos_avg_1;
-  boids[i_combine].xvel_avg = boids[i_combine].xvel_avg_0 + boids[i_combine].xvel_avg_1;
-  boids[i_combine].yvel_avg = boids[i_combine].yvel_avg_0+ boids[i_combine].yvel_avg_1;
-  boids[i_combine].neighboring_boids = boids[i_combine].neighboring_boids_0 +boids[i_combine].neighboring_boids_1;
-}
+// // Combine the initial calc values
+// void boid_combine_values(int i_combine)
+// {
+//   boids[i_combine].close_dx = ;
+//   boids[i_combine].close_dy = ;
+//   boids[i_combine].xpos_avg ;
+//   boids[i_combine].ypos_avg ;
+//   boids[i_combine].xvel_avg 
+//   boids[i_combine].yvel_avg ;
+//   boids[i_combine].neighboring_boids ;
+// }
 
 // Update the x and y positions of each boid
 void boid_algo_update(int i_update)
 {
+  fix15 close_dx = boids[i_update].close_dx_0 + boids[i_update].close_dx_1;
+  fix15 close_dy = boids[i_update].close_dy_0 + boids[i_update].close_dy_1;
+  fix15 xpos_avg = boids[i_update].xpos_avg_0+ boids[i_update].xpos_avg_1;
+  fix15 ypos_avg = boids[i_update].ypos_avg_0 + boids[i_update].ypos_avg_1;
+  fix15 xvel_avg = boids[i_update].xvel_avg_0 + boids[i_update].xvel_avg_1;;
+  fix15 yvel_avg = boids[i_update].yvel_avg_0+ boids[i_update].yvel_avg_1;
+  uint16_t neighboring_boids = boids[i_update].neighboring_boids_0 +boids[i_update].neighboring_boids_1;
   fix15 neighboring_boids_div ;
   fix15 fin_xpos_avg ;
   fix15 fin_ypos_avg ;
@@ -401,14 +408,14 @@ void boid_algo_update(int i_update)
   
   fix15 speed ;
   // If there were any boids in the visual range
-  if (boids[i_update].neighboring_boids > 0)
+  if (neighboring_boids > 0)
   {
     // Divide accumulator variables by number of boids in visual range
-    neighboring_boids_div = divfix(int2fix15(1), int2fix15(boids[i_update].neighboring_boids));
-    fin_xpos_avg = multfix15(boids[i_update].xpos_avg,neighboring_boids_div);
-    fin_ypos_avg = multfix15(boids[i_update].ypos_avg,neighboring_boids_div);
-    fin_xvel_avg = multfix15(boids[i_update].xvel_avg,neighboring_boids_div);
-    fin_yvel_avg = multfix15(boids[i_update].yvel_avg,neighboring_boids_div);
+    neighboring_boids_div = int2fix15(neighboring_boids);
+    fin_xpos_avg = divfix(xpos_avg,neighboring_boids_div);
+    fin_ypos_avg = divfix(ypos_avg,neighboring_boids_div);
+    fin_xvel_avg = divfix(xvel_avg,neighboring_boids_div);
+    fin_yvel_avg = divfix(yvel_avg,neighboring_boids_div);
 
     // Add the centering/matching contributions to velocity
     boids[i_update].vx = (boids[i_update].vx + 
@@ -420,8 +427,8 @@ void boid_algo_update(int i_update)
   }
 
   // Add the avoidance contribution to velocity
-  boids[i_update].vx = boids[i_update].vx + multfix15(boids[i_update].close_dx, avoidfactor);
-  boids[i_update].vy = boids[i_update].vy + multfix15(boids[i_update].close_dy, avoidfactor);
+  boids[i_update].vx = boids[i_update].vx + multfix15(close_dx, avoidfactor);
+  boids[i_update].vy = boids[i_update].vy + multfix15(close_dy, avoidfactor);
 
 
   // If the boid is near an edge, make it turn by turnfactor
@@ -628,8 +635,8 @@ static PT_THREAD (protothread_serial(struct pt *pt))
     gpio_put(LED, !gpio_get(LED));
     PT_BEGIN(pt);
     // stores user input
-    static int int_input ;
-    static float float_input;
+    // static int int_input ;
+    // static float float_input;
     // wait for 0.1 sec
     PT_YIELD_usec(1000000) ;
     // announce the threader version
@@ -637,7 +644,7 @@ static PT_THREAD (protothread_serial(struct pt *pt))
     // non-blocking write
     serial_write ;
 
-    static char cmd[16], arg1[16];
+    static char cmd[16], arg1[6];
     static char* token ;
       while(1) {
         // print prompt
@@ -731,15 +738,16 @@ static PT_THREAD (protothread_serial(struct pt *pt))
             {
               for (int i = 0; i < curr_N_boids; i++)
               {
-                drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
+                drawPixel(fix2int15(boids[i].x), fix2int15(boids[i].y), BLACK);
               }
 
               for (int l = 0; l < curr_N_predators; l++)
               {
                 // erase boid
-                drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
+                drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2,2, BLACK);
               }
               curr_N_boids = (int)(atof(arg1));
+              half_N_boids = curr_N_boids >> 1 ;
               for (int i = 0; i < curr_N_boids; i++)
               {
                 spawnBoids(&boids[i].x,&boids[i].y,&boids[i].vx,&boids[i].vy);
@@ -754,13 +762,13 @@ static PT_THREAD (protothread_serial(struct pt *pt))
             if(arg1 != NULL){
               for (int i = 0; i < curr_N_boids; i++)
               {
-                drawRect(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, BLACK);
+                drawPixel(fix2int15(boids[i].x), fix2int15(boids[i].y), BLACK);
               }
 
               for (int l = 0; l < curr_N_predators; l++)
               {
                 // erase boid
-                drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
+                drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2,2,BLACK);
               }
               curr_N_predators = (int)(atof(arg1));
               for (int i = 0; i < curr_N_boids; i++)
@@ -795,67 +803,60 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     static int total_time_0 = 0;
     static int counter_0 = 0;
     static int core_0 = 0;
-    char str1[50];
-    char str2[50];
-    char str3[50];
-    char str4[50];
+    char str1[25];
+    char str2[25];
+    char str3[25];
+    char str4[25];
 
-    // static int last_boid_1 = 0;
 
-    // Spawn all boids
-    // for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
-    // {
-    //   spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
-    // }
+
     int current_boid_0;
-    for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
+    for (current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
     {
       spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
     }
     // Spawn all predators
-    // for (int l = 0; l < curr_N_predators; l++)
-    // {
-    //   spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
-    // }
-    // still_running_0 = 0;
+    for (int l = 0; l < curr_N_predators; l++)
+    {
+      spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
+    }
 
     // Wait for other thread to stop spawning
-    still_running_0_spawn = 0;
-    while (still_running_1_spawn == 1)
+    still_running_0_spawn = false;
+    while (still_running_1_spawn == true)
     {
 
     }
-    still_running_1_spawn = 1;
+    still_running_1_spawn = true;
 
     while(1) {
 
       // Measure time at start of thread
       begin_time_0 = time_us_32();  
       int current_boid_1 = curr_N_boids - 1;
-      for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
+      for (current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
       {
         // erase boid
-        drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, BLACK);
+        drawPixel(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), BLACK);
         // update boid's position and velocity
         boid_algo_init_calc_core0(current_boid_0, current_boid_1) ;
         current_boid_1--;
       }
 
-      still_running_0_current_update = 0;
-        
-        // Wait until core 1 has finished updating
-      while (still_running_1_current_update == 1)
+      still_running_0_current_update = false;  
+      // Wait until core 1 has finished updating
+      while (still_running_1_current_update == true)
       {
 
       }
-      still_running_1_current_update = 1;
+      still_running_1_current_update = true;
       
-      for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
+      for (current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
       {
-        boid_combine_values(current_boid_0); // TODO: Move this to be inside boid_algo_update
+        // boid_combine_values(current_boid_0); // TODO: Move this to be inside boid_algo_update
         boid_algo_update(current_boid_0);
         // draw the boid at its new position    
-        drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, CYAN);
+        drawPixel(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), WHITE);
         boids[current_boid_0].xpos_avg_0 = 0;
         boids[current_boid_0].ypos_avg_0 = 0;
         boids[current_boid_0].xvel_avg_0 = 0;
@@ -874,31 +875,23 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         boids[current_boid_0].num_predators = 0;
         boids[current_boid_0].predator_dx = 0;
         boids[current_boid_0].predator_dy = 0;
-
-        boids[current_boid_0].xpos_avg = 0;
-        boids[current_boid_0].ypos_avg = 0;
-        boids[current_boid_0].xvel_avg = 0;
-        boids[current_boid_0].yvel_avg = 0;
-        boids[current_boid_0].neighboring_boids = 0;
-        boids[current_boid_0].close_dx = 0;
-        boids[current_boid_0].close_dy = 0;
       }
-      still_running_0_draw = 0;
-      while (still_running_1_draw == 1)
+      still_running_0_draw = false;
+      while (still_running_1_draw == true)
       {
 
       }
-      still_running_1_draw = 1;
+      still_running_1_draw = true;
       
-      // for (int current_predator = 0; current_predator < curr_N_predators; current_predator++)
-      // {
-      //   // erase predator
-      //   drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, BLACK);
-      //   // update boid's position and velocity
-      //   predator_algo(current_predator) ;
-      //   // draw the boid at its new position    
-      //   drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, 6);
-      // }
+      for (int current_predator = 0; current_predator < curr_N_predators; current_predator++)
+      {
+        // erase predator
+        drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, BLACK);
+        // update boid's position and velocity
+        predator_algo(current_predator) ;
+        // draw the boid at its new position    
+        drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, RED);
+      }
       
       // draw the boundaries
       drawArena(should_draw) ;
@@ -945,14 +938,14 @@ static PT_THREAD (protothread_anim(struct pt *pt))
 
     counter_0++;
 
-    // still_running_0 = 0;
-    // while (still_running_1 == 1)
-    // {
-
-    // }
-    // still_running_1 = 1;
     // yield for necessary amount of time
     PT_YIELD_usec(spare_time_0) ;
+    still_running_0_string_output = false;
+    while (still_running_1_string_output == true)
+    {
+
+    }
+    still_running_1_string_output = true;
     // PT_YIELD_usec(1000000);
     // NEVER exit while
   } // END WHILE(1)
@@ -969,6 +962,8 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
 {
     // Mark beginning of thread
     PT_BEGIN(pt);
+
+    // Variables for maintaining frame rate
     static int begin_time_1 ;
     static int spare_time_1 ;
     static int total_time_1 = 0;
@@ -978,41 +973,28 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
     char str2[50];
     char str3[50];
     char str4[50];
-    // Variables for maintaining frame rate
-    // static int begin_time_1 ;
-    // static int spare_time_1 ;
-    // static int total_time_1 = 0;
-    // static int counter_1 = 0;
-    // static int core_1 = 1;
-    // static int last_boid_0 = 0;
 
-    // still_running_1 = 0;
-    // while (still_running_0 == 1)
-    // {
-
-    // }
-    // still_running_0 = 1;
     int current_boid_1;
-    for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
+    for (current_boid_1 = curr_N_boids-1; current_boid_1 > half_N_boids-1; current_boid_1--)
     {
       spawnBoids(&boids[current_boid_1].x,&boids[current_boid_1].y,&boids[current_boid_1].vx,&boids[current_boid_1].vy);
     }
-    still_running_1_spawn = 0;
-    while (still_running_0_spawn == 1)
+    still_running_1_spawn = false;
+    while (still_running_0_spawn == true)
     {
 
     }
-    still_running_0_spawn = 1;
+    still_running_0_spawn = true;
 
     while(1) {
       // Measure time at start of thread
       begin_time_1 = time_us_32();  
       int current_boid_0 = 0;
-      for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
+      for (current_boid_1 = curr_N_boids-1; current_boid_1 > half_N_boids-1; current_boid_1--)
       {
         
         // erase boid
-        drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, BLACK);
+        drawPixel(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), BLACK);
         
         
         // update boid's position and velocity
@@ -1021,26 +1003,20 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
         current_boid_0++;
       }
 
-      still_running_1_current_update = 0;
-      while (still_running_0_current_update == 1)
+      still_running_1_current_update = false;
+      // Wait until core 0 has finished updating
+      while (still_running_0_current_update == true)
       {
-      }
-      still_running_0_current_update = 1;
-      //last_boid_0 = 0;
-      // still_running_1 = 0;
-      // while (still_running_0 == 1)
-      // {
 
-      // }
-      // still_running_0 = 1;
-      for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
+      }
+      still_running_0_current_update = true;
+  
+      for (current_boid_1 = curr_N_boids-1; current_boid_1 > half_N_boids-1; current_boid_1--)
       {
-        boid_combine_values(current_boid_1);
+        // boid_combine_values(current_boid_1);
         boid_algo_update(current_boid_1);
         // draw the boid at its new position    
-        // printf("%d\n", boids[i].vx);
-        // printf("%d\n", boids[i].vy);
-        drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, GREEN);
+        drawPixel(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), WHITE);
         boids[current_boid_1].xpos_avg_0 = 0;
         boids[current_boid_1].ypos_avg_0 = 0;
         boids[current_boid_1].xvel_avg_0 = 0;
@@ -1059,22 +1035,15 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
         boids[current_boid_1].predator_dx = 0;
         boids[current_boid_1].predator_dy = 0;
 
-        boids[current_boid_1].xpos_avg = 0;
-        boids[current_boid_1].ypos_avg = 0;
-        boids[current_boid_1].xvel_avg = 0;
-        boids[current_boid_1].yvel_avg = 0;
-        boids[current_boid_1].neighboring_boids = 0;
-        boids[current_boid_1].close_dx = 0;
-        boids[current_boid_1].close_dy = 0;
       }
-      still_running_1_draw = 0;
+      still_running_1_draw = false;
 
       // TODO: change this to the protothreads wait
-      while (still_running_0_draw == 1)
+      while (still_running_0_draw == true)
       {
 
       }
-      still_running_0_draw = 1;
+      still_running_0_draw = true;
 
       // draw the boundaries
       drawArena(should_draw) ;
@@ -1124,6 +1093,13 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
       
       // yield for necessary amount of time
       PT_YIELD_usec(spare_time_1) ;
+
+      still_running_1_string_output = false;
+      while (still_running_0_string_output == true)
+      {
+
+      }
+      still_running_0_string_output = true;
       // PT_YIELD_usec(1000000);
       // NEVER exit while
     } // END WHILE(1)
