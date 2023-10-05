@@ -107,7 +107,7 @@ struct predator {
 
 
 // Boid Variables and struct
-#define N_boids 600
+#define N_boids 1000
 volatile int curr_N_boids = 100;
 struct boid boids[N_boids];
 fix15 turnfactor = float2fix15(0.2);
@@ -131,8 +131,8 @@ fix15 predator_turnfactor = float2fix15(0.5);
 
 
 // All variables for both core stuff
-volatile int current_boid_0 ;
-volatile int current_boid_1 ;
+// volatile int current_boid_0 ;
+// volatile int current_boid_1 ;
 volatile int still_running_0 = 1; // Flag to stop core 1 until core 0 is ready to move on
 volatile int still_running_1 = 1;
 volatile int still_running_0_current_update = 1;
@@ -241,8 +241,8 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
           // If so, calculate difference in x/y-coordinates to nearfield boid
           boids[i_0].close_dx_0 += dx_i_0;
           boids[i_0].close_dy_0 += dy_i_0;
-          boids[j].close_dx_0 += -dx_i_0;
-          boids[j].close_dy_0 += -dy_i_0;
+          boids[j].close_dx_0 -= dx_i_0;
+          boids[j].close_dy_0 -= dy_i_0;
           
       }
       // If not in protected range, is the boid in the visual range?
@@ -323,8 +323,8 @@ void boid_algo_init_calc_core1(int i_0, int i_1)
           // If so, calculate difference in x/y-coordinates to nearfield boid
           boids[i_1].close_dx_1 += dx_i_1;
           boids[i_1].close_dy_1 += dy_i_1;
-          boids[j].close_dx_1 += -dx_i_1;
-          boids[j].close_dy_1 += -dy_i_1;
+          boids[j].close_dx_1 -= dx_i_1;
+          boids[j].close_dy_1 -= dy_i_1;
           
       }
       // If not in protected range, is the boid in the visual range?
@@ -708,6 +708,7 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         else if(strcmp(cmd,"protectedrange")==0){
             if(arg1 != NULL){
                 protectedRange = int2fix15(atoi(arg1));
+                protectedRangeSquared = multfix15(protectedRange, protectedRange);
             }
         }
         else if(strcmp(cmd,"centeringfactor")==0){
@@ -806,6 +807,7 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     // {
     //   spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
     // }
+    int current_boid_0;
     for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
     {
       spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
@@ -816,6 +818,8 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     //   spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
     // }
     // still_running_0 = 0;
+
+    // Wait for other thread to stop spawning
     still_running_0_spawn = 0;
     while (still_running_1_spawn == 1)
     {
@@ -827,46 +831,31 @@ static PT_THREAD (protothread_anim(struct pt *pt))
 
       // Measure time at start of thread
       begin_time_0 = time_us_32();  
+      int current_boid_1 = curr_N_boids - 1;
       for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
       {
         // erase boid
         drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, BLACK);
-        
-        still_running_0_current_update = 0;
-        
-        // Wait until core 1 has finished updating
-        while (still_running_1_current_update == 1)
-        {
-
-        }
-        still_running_1_current_update = 1;
-
         // update boid's position and velocity
         boid_algo_init_calc_core0(current_boid_0, current_boid_1) ;
-        // last_boid_1++;
-
-        
-        // still_running_0 = 0;
-        // while (still_running_1 == 1)
-        // {
-
-        // }
-        // still_running_1 = 1;
+        current_boid_1--;
       }
-      // last_boid_1 = 0;
 
-      // for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
-      // {
-      //   boid_combine_values(current_boid_0);
-      // }  
-      // still_running_0 = 0;
+      still_running_0_current_update = 0;
+        
+        // Wait until core 1 has finished updating
+      while (still_running_1_current_update == 1)
+      {
 
+      }
+      still_running_1_current_update = 1;
+      
       for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
       {
         boid_combine_values(current_boid_0); // TODO: Move this to be inside boid_algo_update
         boid_algo_update(current_boid_0);
         // draw the boid at its new position    
-        drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, 2);
+        drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, CYAN);
         boids[current_boid_0].xpos_avg_0 = 0;
         boids[current_boid_0].ypos_avg_0 = 0;
         boids[current_boid_0].xvel_avg_0 = 0;
@@ -874,6 +863,14 @@ static PT_THREAD (protothread_anim(struct pt *pt))
         boids[current_boid_0].neighboring_boids_0 = 0;
         boids[current_boid_0].close_dx_0 = 0;
         boids[current_boid_0].close_dy_0 = 0;
+        boids[current_boid_0].close_dy_0 = 0;
+        boids[current_boid_0].xpos_avg_1 = 0;
+        boids[current_boid_0].ypos_avg_1 = 0;
+        boids[current_boid_0].xvel_avg_1 = 0;
+        boids[current_boid_0].yvel_avg_1 = 0;
+        boids[current_boid_0].neighboring_boids_1 = 0;
+        boids[current_boid_0].close_dx_1 = 0;
+        boids[current_boid_0].close_dy_1 = 0;
         boids[current_boid_0].num_predators = 0;
         boids[current_boid_0].predator_dx = 0;
         boids[current_boid_0].predator_dy = 0;
@@ -907,46 +904,46 @@ static PT_THREAD (protothread_anim(struct pt *pt))
       drawArena(should_draw) ;
       spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0) ;
 
-    //   if (counter_0 > 30) {
-    //       spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0) ;
+      if (counter_0 > 30) {
+          spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0) ;
 
-    //   //Display text: Number of boids, frame rate, time elapsed
+      //Display text: Number of boids, frame rate, time elapsed
     
-    //   total_time_0 = time_us_32() / 1000000;
+      total_time_0 = time_us_32() / 1000000;
 
-    //   sprintf(str1, "Time Elapsed=%ds", total_time_0);
+      sprintf(str1, "Time Elapsed=%ds", total_time_0);
 
-    //   sprintf(str2, "Spare Time=%dus", spare_time_0);
+      sprintf(str2, "Spare Time=%dus", spare_time_0);
 
-    //   sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
+      sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
 
-    //   sprintf(str4, "# boids=%d", curr_N_boids);
+      sprintf(str4, "# boids=%d", curr_N_boids);
 
-    //   fillRect(0, 0, 350, 50, BLACK);
-    //   setCursor(10,10);
-    //   setTextColor(WHITE);
-    //   setTextSize(1);
-    //   writeString(str1);
+      fillRect(0, 0, 350, 50, BLACK);
+      setCursor(10,10);
+      setTextColor(WHITE);
+      setTextSize(1);
+      writeString(str1);
 
-    //   setCursor(200,10);
-    //   setTextColor(WHITE);
-    //   setTextSize(1);
-    //   writeString(str2);
+      setCursor(200,10);
+      setTextColor(WHITE);
+      setTextSize(1);
+      writeString(str2);
 
-    //   setCursor(10,30);
-    //   setTextColor(WHITE);
-    //   setTextSize(1);
-    //   writeString(str3);
+      setCursor(10,30);
+      setTextColor(WHITE);
+      setTextSize(1);
+      writeString(str3);
 
-    //   setCursor(200,30);
-    //   setTextColor(WHITE);
-    //   setTextSize(1);
-    //   writeString(str4);
+      setCursor(200,30);
+      setTextColor(WHITE);
+      setTextSize(1);
+      writeString(str4);
 
-    //   counter_0 = 0;
-    // }
+      counter_0 = 0;
+    }
 
-    // counter_0++;
+    counter_0++;
 
     // still_running_0 = 0;
     // while (still_running_1 == 1)
@@ -995,7 +992,7 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
 
     // }
     // still_running_0 = 1;
-
+    int current_boid_1;
     for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
     {
       spawnBoids(&boids[current_boid_1].x,&boids[current_boid_1].y,&boids[current_boid_1].vx,&boids[current_boid_1].vy);
@@ -1010,25 +1007,26 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
     while(1) {
       // Measure time at start of thread
       begin_time_1 = time_us_32();  
+      int current_boid_0 = 0;
       for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
       {
         
         // erase boid
         drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, BLACK);
         
-        still_running_1_current_update = 0;
-        while (still_running_0_current_update == 1)
-        {
-
-        }
-        still_running_0_current_update = 1;
         
         // update boid's position and velocity
         boid_algo_init_calc_core1(current_boid_0, current_boid_1) ;
 
-        
+        current_boid_0++;
       }
-      last_boid_0 = 0;
+
+      still_running_1_current_update = 0;
+      while (still_running_0_current_update == 1)
+      {
+      }
+      still_running_0_current_update = 1;
+      //last_boid_0 = 0;
       // still_running_1 = 0;
       // while (still_running_0 == 1)
       // {
@@ -1042,7 +1040,14 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
-        drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, 3);
+        drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, GREEN);
+        boids[current_boid_1].xpos_avg_0 = 0;
+        boids[current_boid_1].ypos_avg_0 = 0;
+        boids[current_boid_1].xvel_avg_0 = 0;
+        boids[current_boid_1].yvel_avg_0 = 0;
+        boids[current_boid_1].neighboring_boids_0 = 0;
+        boids[current_boid_1].close_dx_0 = 0;
+        boids[current_boid_1].close_dy_0 = 0;
         boids[current_boid_1].xpos_avg_1 = 0;
         boids[current_boid_1].ypos_avg_1 = 0;
         boids[current_boid_1].xvel_avg_1 = 0;
@@ -1148,6 +1153,7 @@ void core1_main(){
 // ========================================
 // USE ONLY C-sdk library
 int main(){
+  set_sys_clock_khz(250000, true);
   // initialize stio
   stdio_init_all() ;
 
