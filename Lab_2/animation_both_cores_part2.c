@@ -135,6 +135,13 @@ volatile int current_boid_0 ;
 volatile int current_boid_1 ;
 volatile int still_running_0 = 1; // Flag to stop core 1 until core 0 is ready to move on
 volatile int still_running_1 = 1;
+volatile int still_running_0_current_update = 1;
+volatile int still_running_0_spawn = 1;
+volatile int still_running_0_draw = 1;
+volatile int still_running_1_current_update = 1;
+volatile int still_running_1_spawn = 1;
+volatile int still_running_1_draw = 1;
+
 
 // Margin Size
 int x_margin_left_box = 100;
@@ -206,7 +213,7 @@ void drawArena(int should_draw)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// Boid_algo inital claculation for core 0
+// Boid_algo initial calculation for i_0 boid
 void boid_algo_init_calc_core0(int i_0, int i_1)
 {
   fix15 squared_distance_0 ;
@@ -218,7 +225,7 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
   fix15 dy_p_0 ;
 
 
-  for (int j = i_0 + 1; j < (curr_N_boids - i_1); j++)
+  for (int j = i_0 + 1; j < (i_1 + 1); j++)
   {
     dx_i_0 = boids[i_0].x - boids[j].x;
     dy_i_0 = boids[i_0].y - boids[j].y;
@@ -289,7 +296,7 @@ void boid_algo_init_calc_core0(int i_0, int i_1)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// Boid_algo inital claculation for core 1
+// Boid_algo initial calculation for i_1 boid
 void boid_algo_init_calc_core1(int i_0, int i_1)
 {
   fix15 squared_distance_1 ;
@@ -376,11 +383,11 @@ void boid_combine_values(int i_combine)
 {
   boids[i_combine].close_dx = boids[i_combine].close_dx_0 + boids[i_combine].close_dx_1;
   boids[i_combine].close_dy = boids[i_combine].close_dy_0 + boids[i_combine].close_dy_1;
-  boids[i_combine].xpos_avg = boids[i_combine].xpos_avg_0 + boids[i_combine].xpos_avg_1;
+  boids[i_combine].xpos_avg = boids[i_combine].xpos_avg_0+ boids[i_combine].xpos_avg_1;
   boids[i_combine].ypos_avg = boids[i_combine].ypos_avg_0 + boids[i_combine].ypos_avg_1;
   boids[i_combine].xvel_avg = boids[i_combine].xvel_avg_0 + boids[i_combine].xvel_avg_1;
-  boids[i_combine].yvel_avg = boids[i_combine].yvel_avg_0 + boids[i_combine].yvel_avg_1;
-  boids[i_combine].neighboring_boids = boids[i_combine].neighboring_boids_0 + boids[i_combine].neighboring_boids_1;
+  boids[i_combine].yvel_avg = boids[i_combine].yvel_avg_0+ boids[i_combine].yvel_avg_1;
+  boids[i_combine].neighboring_boids = boids[i_combine].neighboring_boids_0 +boids[i_combine].neighboring_boids_1;
 }
 
 // Update the x and y positions of each boid
@@ -500,11 +507,12 @@ void boid_algo_update(int i_update)
   //////////////////////////////////
 
 
-  //Calculate the boid's speed
-  //Slow step! Lookup the "alpha max plus beta min" algorithm  
+  // Calculate the boid's speed
+  // Slow step! Lookup the "alpha max plus beta min" algorithm  
   speed = sqrtfix(multfix15(boids[i_update].vx,boids[i_update].vx) + 
                   multfix15(boids[i_update].vy,boids[i_update].vy));
 
+  // Can speed this up by multiplying by a fix constant instead of normalizing
   if (speed > maxspeed) {
     boids[i_update].vx = multfix15(divfix(boids[i_update].vx, speed), maxspeed);
     boids[i_update].vy = multfix15(divfix(boids[i_update].vy, speed), maxspeed);
@@ -694,6 +702,7 @@ static PT_THREAD (protothread_serial(struct pt *pt))
         else if(strcmp(cmd,"visualrange")==0){
             if(arg1 != NULL){
                 visualRange = int2fix15(atoi(arg1));
+                visualRangeSquared = multfix15(visualRange, visualRange);
             }
         }
         else if(strcmp(cmd,"protectedrange")==0){
@@ -790,97 +799,154 @@ static PT_THREAD (protothread_anim(struct pt *pt))
     char str3[50];
     char str4[50];
 
-    static int last_boid_1 = 0;
+    // static int last_boid_1 = 0;
 
     // Spawn all boids
-    for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
+    // for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
+    // {
+    //   spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
+    // }
+    for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
     {
       spawnBoids(&boids[current_boid_0].x,&boids[current_boid_0].y,&boids[current_boid_0].vx,&boids[current_boid_0].vy);
     }
     // Spawn all predators
-    for (int l = 0; l < curr_N_predators; l++)
+    // for (int l = 0; l < curr_N_predators; l++)
+    // {
+    //   spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
+    // }
+    // still_running_0 = 0;
+    still_running_0_spawn = 0;
+    while (still_running_1_spawn == 1)
     {
-      spawnBoids(&predators[l].x,&predators[l].y,&predators[l].vx,&predators[l].vy);
+
     }
-    still_running_0 = 0;
-    
+    still_running_1_spawn = 1;
 
     while(1) {
+
       // Measure time at start of thread
       begin_time_0 = time_us_32();  
       for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
       {
         // erase boid
         drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, BLACK);
+        
+        still_running_0_current_update = 0;
+        
+        // Wait until core 1 has finished updating
+        while (still_running_1_current_update == 1)
+        {
+
+        }
+        still_running_1_current_update = 1;
+
         // update boid's position and velocity
-        boid_algo_init_calc_core0(current_boid_0, last_boid_1) ;
-        last_boid_1++;
+        boid_algo_init_calc_core0(current_boid_0, current_boid_1) ;
+        // last_boid_1++;
+
+        
+        // still_running_0 = 0;
+        // while (still_running_1 == 1)
+        // {
+
+        // }
+        // still_running_1 = 1;
       }
-      last_boid_1 = 0;
-      for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
-      {
-        boid_combine_values(current_boid_0);
-      }  
-      still_running_0 = 0;
+      // last_boid_1 = 0;
+
+      // for (current_boid_0 = 0; current_boid_0 < curr_N_boids; current_boid_0++)
+      // {
+      //   boid_combine_values(current_boid_0);
+      // }  
+      // still_running_0 = 0;
 
       for (current_boid_0 = 0; current_boid_0 < curr_N_boids/2; current_boid_0++)
       {
+        boid_combine_values(current_boid_0); // TODO: Move this to be inside boid_algo_update
         boid_algo_update(current_boid_0);
         // draw the boid at its new position    
         drawRect(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), 2, 2, 2);
+        boids[current_boid_0].xpos_avg_0 = 0;
+        boids[current_boid_0].ypos_avg_0 = 0;
+        boids[current_boid_0].xvel_avg_0 = 0;
+        boids[current_boid_0].yvel_avg_0 = 0;
+        boids[current_boid_0].neighboring_boids_0 = 0;
+        boids[current_boid_0].close_dx_0 = 0;
+        boids[current_boid_0].close_dy_0 = 0;
+        boids[current_boid_0].num_predators = 0;
+        boids[current_boid_0].predator_dx = 0;
+        boids[current_boid_0].predator_dy = 0;
+
+        boids[current_boid_0].xpos_avg = 0;
+        boids[current_boid_0].ypos_avg = 0;
+        boids[current_boid_0].xvel_avg = 0;
+        boids[current_boid_0].yvel_avg = 0;
+        boids[current_boid_0].neighboring_boids = 0;
+        boids[current_boid_0].close_dx = 0;
+        boids[current_boid_0].close_dy = 0;
       }
-      for (int current_predator = 0; current_predator < curr_N_predators; current_predator++)
+      still_running_0_draw = 0;
+      while (still_running_1_draw == 1)
       {
-        // erase predator
-        drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, BLACK);
-        // update boid's position and velocity
-        predator_algo(current_predator) ;
-        // draw the boid at its new position    
-        drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, 6);
+
       }
+      still_running_1_draw = 1;
+      
+      // for (int current_predator = 0; current_predator < curr_N_predators; current_predator++)
+      // {
+      //   // erase predator
+      //   drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, BLACK);
+      //   // update boid's position and velocity
+      //   predator_algo(current_predator) ;
+      //   // draw the boid at its new position    
+      //   drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, 6);
+      // }
+      
       // draw the boundaries
       drawArena(should_draw) ;
- 
-      if (counter_0 > 30) {
-          spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0) ;
+      spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0) ;
 
-      //Display text: Number of boids, frame rate, time elapsed
+    //   if (counter_0 > 30) {
+    //       spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0) ;
+
+    //   //Display text: Number of boids, frame rate, time elapsed
     
-      total_time_0 = time_us_32() / 1000000;
+    //   total_time_0 = time_us_32() / 1000000;
 
-      sprintf(str1, "Time Elapsed=%ds", total_time_0);
+    //   sprintf(str1, "Time Elapsed=%ds", total_time_0);
 
-      sprintf(str2, "Spare Time=%dus", spare_time_0);
+    //   sprintf(str2, "Spare Time=%dus", spare_time_0);
 
-      sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
+    //   sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
 
-      sprintf(str4, "# boids=%d", curr_N_boids);
+    //   sprintf(str4, "# boids=%d", curr_N_boids);
 
-      fillRect(0, 0, 350, 50, BLACK);
-      setCursor(10,10);
-      setTextColor(WHITE);
-      setTextSize(1);
-      writeString(str1);
+    //   fillRect(0, 0, 350, 50, BLACK);
+    //   setCursor(10,10);
+    //   setTextColor(WHITE);
+    //   setTextSize(1);
+    //   writeString(str1);
 
-      setCursor(200,10);
-      setTextColor(WHITE);
-      setTextSize(1);
-      writeString(str2);
+    //   setCursor(200,10);
+    //   setTextColor(WHITE);
+    //   setTextSize(1);
+    //   writeString(str2);
 
-      setCursor(10,30);
-      setTextColor(WHITE);
-      setTextSize(1);
-      writeString(str3);
+    //   setCursor(10,30);
+    //   setTextColor(WHITE);
+    //   setTextSize(1);
+    //   writeString(str3);
 
-      setCursor(200,30);
-      setTextColor(WHITE);
-      setTextSize(1);
-      writeString(str4);
+    //   setCursor(200,30);
+    //   setTextColor(WHITE);
+    //   setTextSize(1);
+    //   writeString(str4);
 
-      counter_0 = 0;
-    }
+    //   counter_0 = 0;
+    // }
 
-    counter_0++;
+    // counter_0++;
 
     // still_running_0 = 0;
     // while (still_running_1 == 1)
@@ -906,56 +972,153 @@ static PT_THREAD (protothread_anim1(struct pt *pt))
 {
     // Mark beginning of thread
     PT_BEGIN(pt);
-
+    static int begin_time_1 ;
+    static int spare_time_1 ;
+    static int total_time_1 = 0;
+    static int counter_1 = 0;
+    static int core_0 = 0;
+    char str1[50];
+    char str2[50];
+    char str3[50];
+    char str4[50];
     // Variables for maintaining frame rate
     // static int begin_time_1 ;
     // static int spare_time_1 ;
     // static int total_time_1 = 0;
     // static int counter_1 = 0;
     // static int core_1 = 1;
-    static int last_boid_0 = 0;
+    // static int last_boid_0 = 0;
 
-    still_running_1 = 0;
-    while (still_running_0 == 1)
+    // still_running_1 = 0;
+    // while (still_running_0 == 1)
+    // {
+
+    // }
+    // still_running_0 = 1;
+
+    for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
+    {
+      spawnBoids(&boids[current_boid_1].x,&boids[current_boid_1].y,&boids[current_boid_1].vx,&boids[current_boid_1].vy);
+    }
+    still_running_1_spawn = 0;
+    while (still_running_0_spawn == 1)
     {
 
     }
-    still_running_0 = 1;
+    still_running_0_spawn = 1;
 
     while(1) {
       // Measure time at start of thread
-      // begin_time_1 = time_us_32();  
+      begin_time_1 = time_us_32();  
       for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
       {
+        
         // erase boid
         drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, BLACK);
+        
+        still_running_1_current_update = 0;
+        while (still_running_0_current_update == 1)
+        {
+
+        }
+        still_running_0_current_update = 1;
+        
         // update boid's position and velocity
-        boid_algo_init_calc_core1(last_boid_0, current_boid_1) ;
-        last_boid_0++;
+        boid_algo_init_calc_core1(current_boid_0, current_boid_1) ;
+
+        
       }
       last_boid_0 = 0;
-      still_running_1 = 0;
-      while (still_running_0 == 1)
-      {
+      // still_running_1 = 0;
+      // while (still_running_0 == 1)
+      // {
 
-      }
-      still_running_0 = 1;
+      // }
+      // still_running_0 = 1;
       for (current_boid_1 = curr_N_boids-1; current_boid_1 > curr_N_boids/2-1; current_boid_1--)
       {
+        boid_combine_values(current_boid_1);
         boid_algo_update(current_boid_1);
         // draw the boid at its new position    
         // printf("%d\n", boids[i].vx);
         // printf("%d\n", boids[i].vy);
-        drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, 2);
+        drawRect(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), 2, 2, 3);
+        boids[current_boid_1].xpos_avg_1 = 0;
+        boids[current_boid_1].ypos_avg_1 = 0;
+        boids[current_boid_1].xvel_avg_1 = 0;
+        boids[current_boid_1].yvel_avg_1 = 0;
+        boids[current_boid_1].neighboring_boids_1 = 0;
+        boids[current_boid_1].close_dx_1 = 0;
+        boids[current_boid_1].close_dy_1 = 0;
+        boids[current_boid_1].num_predators = 0;
+        boids[current_boid_1].predator_dx = 0;
+        boids[current_boid_1].predator_dy = 0;
+
+        boids[current_boid_1].xpos_avg = 0;
+        boids[current_boid_1].ypos_avg = 0;
+        boids[current_boid_1].xvel_avg = 0;
+        boids[current_boid_1].yvel_avg = 0;
+        boids[current_boid_1].neighboring_boids = 0;
+        boids[current_boid_1].close_dx = 0;
+        boids[current_boid_1].close_dy = 0;
       }
-      still_running_1 = 0;
-      while (still_running_0 == 1)
+      still_running_1_draw = 0;
+
+      // TODO: change this to the protothreads wait
+      while (still_running_0_draw == 1)
       {
 
       }
-      still_running_0 = 1;
+      still_running_0_draw = 1;
+
+      // draw the boundaries
+      drawArena(should_draw) ;
+
+      spare_time_1 = FRAME_RATE - (time_us_32() - begin_time_1) ;
+      
+      // if (counter_1 > 30) {
+      //     spare_time_1 = FRAME_RATE - (time_us_32() - begin_time_1) ;
+
+      //   //Display text: Number of boids, frame rate, time elapsed
+      
+      //   total_time_1 = time_us_32() / 1000000;
+
+      //   sprintf(str1, "Time Elapsed=%ds", total_time_1);
+
+      //   sprintf(str2, "Spare Time=%dus", spare_time_1);
+
+      //   sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
+
+      //   sprintf(str4, "# boids=%d", curr_N_boids);
+
+      //   fillRect(0, 0, 350, 50, BLACK);
+      //   setCursor(10,10);
+      //   setTextColor(WHITE);
+      //   setTextSize(1);
+      //   writeString(str1);
+
+      //   setCursor(200,10);
+      //   setTextColor(WHITE);
+      //   setTextSize(1);
+      //   writeString(str2);
+
+      //   setCursor(10,30);
+      //   setTextColor(WHITE);
+      //   setTextSize(1);
+      //   writeString(str3);
+
+      //   setCursor(200,30);
+      //   setTextColor(WHITE);
+      //   setTextSize(1);
+      //   writeString(str4);
+
+      //   counter_1 = 0;
+      // }
+
+      // counter_1++;
+      
       // yield for necessary amount of time
-      // PT_YIELD_usec(spare_time) ;
+      PT_YIELD_usec(spare_time_1) ;
       // PT_YIELD_usec(1000000);
       // NEVER exit while
     } // END WHILE(1)
