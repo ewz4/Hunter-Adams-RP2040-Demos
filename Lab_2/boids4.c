@@ -119,7 +119,7 @@ fix15 visualRangeSquared = int2fix15(1600);
 
 // Predator parameters
 #define N_predators 5
-uint8_t curr_N_predators = 3;
+uint8_t curr_N_predators = 0;
 struct predator predators[N_predators];
 fix15 predatory_range = int2fix15(100);
 fix15 predatory_range_squared = int2fix15(10000);
@@ -263,7 +263,7 @@ void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Boid_algo initial calculation for i_1 boid
-void boid_algo_init_calc_core1(unt16_t i_0, uint16_t i_1)
+void boid_algo_init_calc_core1(uint16_t i_0, uint16_t i_1)
 {
     fix15 squared_distance_1;
     fix15 dx_i_1;
@@ -585,7 +585,6 @@ void predator_algo(uint8_t l)
 // ==================================================
 static PT_THREAD(protothread_serial(struct pt *pt))
 {
-    gpio_put(LED, !gpio_get(LED));
     PT_BEGIN(pt);
 
     // wait for 1 sec
@@ -860,7 +859,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         // draw the boundaries
         drawArena(should_draw);
-        spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0);
+        // spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0);
 
         if (counter_0 > 30)
         {
@@ -870,13 +869,13 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
             total_time_0 = time_us_32() / 1000000;
 
-            sprintf(str1, "Time Elapsed=%ds", total_time_0);
+            sprintf(str1, "Time=%d", total_time_0);
 
-            sprintf(str2, "Spare Time=%dus", spare_time_0);
+            sprintf(str2, "Spare Time=%d", spare_time_0);
 
             // sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
 
-            sprintf(str4, "# boids=%d", curr_N_boids);
+            sprintf(str4, "Boids=%d", curr_N_boids);
 
             fillRect(0, 0, 150, 70, BLACK);
             setCursor(10, 10);
@@ -1044,9 +1043,6 @@ int main()
     initVGA();
 
     // Map LED to GPIO port, make it low
-    gpio_init(LED);
-    gpio_set_dir(LED, GPIO_OUT);
-    gpio_put(LED, 0);
 
     // start core 1
     multicore_reset_core1();

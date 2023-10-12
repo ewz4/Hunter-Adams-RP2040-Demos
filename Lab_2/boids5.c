@@ -878,7 +878,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         // draw the boundaries
         drawArena(should_draw);
-        spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0);
 
         if (counter_0 > 30)
         {

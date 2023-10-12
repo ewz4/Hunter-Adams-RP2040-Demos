@@ -624,10 +624,9 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 }
             }
         }
-    }
-    else printf("Huh?\n\r");
-} // END WHILE(1)
-PT_END(pt);
+        else printf("Huh?\n\r");
+    } // END WHILE(1)
+    PT_END(pt);
 } // timer thread
 
 // Animation on core 0
@@ -681,7 +680,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             // update boid's position and velocity
             boid_algo(i);
             // draw the boid at its new position
-            drawPixel(fix2int15(boids[i].x), fix2int15(boids[i].y), 2, 2, WHITE);
+            drawPixel(fix2int15(boids[i].x), fix2int15(boids[i].y), WHITE);
         }
 
         for (uint8_t l = 0; l < curr_N_predators; l++)
@@ -705,11 +704,13 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
             total_time = time_us_32() / 1000000;
 
-            sprintf(str1, "Time Elapsed = %d seconds", total_time);
+            sprintf(str1, "Time=%d", total_time);
 
-            sprintf(str2, "Spare Time = %d us", spare_time);
+            sprintf(str2, "Spare Time=%d", spare_time);
 
-            sprintf(str4, "Number of boids = %d", curr_N_boids);
+            // sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
+
+            sprintf(str4, "Boids=%d", curr_N_boids);
 
             fillRect(0, 0, 150, 70, BLACK);
             setCursor(10, 10);
