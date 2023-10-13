@@ -41,6 +41,7 @@
 // Include protothreads
 #include "pt_cornell_rp2040_v1.h"
 
+// Include integral type libraries
 #include <stdint.h>
 
 // === the fixed point macros ========================================
@@ -67,10 +68,13 @@ typedef signed int fix15;
 // Boid and predator structs
 struct boid
 {
+    // Current state of boid
     fix15 x;
     fix15 y;
     fix15 vx;
     fix15 vy;
+
+    // Variables of current state needed for boid algo calculation
     fix15 close_dx_0;
     fix15 close_dy_0;
     fix15 xpos_avg_0;
@@ -92,17 +96,20 @@ struct boid
 
 struct predator
 {
+    // Current state of predators
     fix15 x;
     fix15 y;
     fix15 vx;
     fix15 vy;
 };
 
-// Boid parameters
-#define N_boids 1209
-uint16_t curr_N_boids = 1209;
-uint16_t half_N_boids = 604;
+// Initializing boids
+#define N_boids 1209 // Total # of possible boids
+uint16_t curr_N_boids = 1209; // Current # of boids
+uint16_t half_N_boids = 604; 
 struct boid boids[N_boids];
+
+// Initializing boid parameters
 fix15 turnfactor = float2fix15(0.2);
 fix15 visualRange = int2fix15(40);
 fix15 protectedRange = int2fix15(8);
@@ -111,17 +118,17 @@ fix15 avoidfactor = float2fix15(0.05);
 fix15 matchingfactor = float2fix15(0.05);
 fix15 maxspeed = int2fix15(6);
 fix15 minspeed = int2fix15(3);
-// fix15 protectedRangeSquared = int2fix15(64);
-// fix15 visualRangeSquared = int2fix15(1600);
 
-// Predator parameters
-#define N_predators 5
-uint8_t curr_N_predators = 0;
+// Initializing predator s
+#define N_predators 5 // Total # of possible predators
+uint8_t curr_N_predators = 0; // Current # of predators
 struct predator predators[N_predators];
+
+// Initializing predator parameters
 fix15 predatory_range = int2fix15(100);
 fix15 predator_turnfactor = float2fix15(0.5);
 
-// All variables for both core stuff
+// All boolean values for both cores --> will wait for other core to synchronize animation
 volatile bool still_running_0_current_update = true;
 volatile bool still_running_0_spawn = true;
 volatile bool still_running_0_draw = true;
@@ -172,6 +179,7 @@ void drawArena(int should_draw)
 {
     if (should_draw == 1)
     {
+        // Draws a box on the screen
         drawVLine(x_margin_left_box, y_margin_top_box, y_change_margin_box, WHITE);
         drawVLine(x_margin_right_box, y_margin_top_box, y_change_margin_box, WHITE);
         drawHLine(x_margin_left_box, y_margin_top_box, x_change_margin_box, WHITE);
@@ -179,6 +187,7 @@ void drawArena(int should_draw)
     }
     else if (should_draw == 2)
     {
+        // Draws 2 vertical lines on the screen
         drawVLine(x_margin_left_V_line, y_margin_top_line, y_change_margin_line, WHITE);
         drawVLine(x_margin_right_V_line, y_margin_top_line, y_change_margin_line, WHITE);
     }
@@ -190,6 +199,7 @@ void drawArena(int should_draw)
 // Boid_algo initial calculation for i_0 boid
 void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1, bool second_cycle)
 {
+    // Initializes values only needed for each boid cycle
     fix15 squared_distance_0;
     fix15 dx_i_0;
     fix15 dy_i_0;
@@ -201,6 +211,7 @@ void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1, bool second_cycle)
     uint16_t lower = i_0 + 1;
     uint16_t upper = half_N_boids;
 
+    // If first cycle, then calculate core 0 boid update. Cycles alternate each time step
     if (second_cycle)
     {
         lower = half_N_boids;
@@ -214,33 +225,32 @@ void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1, bool second_cycle)
         // Are both those differences less than the visual range?
         if (absfix15(dx_i_0) < visualRange && absfix15(dy_i_0) < visualRange)
         {
-            // If so, calculate the squared distance
-            // squared_distance_0 = multfix15(dx_i_0,dx_i_0) + multfix15(dy_i_0,dy_i_0);
-
-            // Is squared distance less than the protected range?
+            // Are both those differences less than the protected range?
             if (absfix15(dx_i_0) < protectedRange && absfix15(dy_i_0) < protectedRange)
             {
-                // If so, calculate difference in x/y-coordinates to nearfield boid
+                // If so, add dx and dy to close_dx and close_dy for current boid
                 boids[i_0].close_dx_0 += dx_i_0;
                 boids[i_0].close_dy_0 += dy_i_0;
+
+                // If so, subtract dx and dy to close_dx and close_dy for other boid
                 boids[j].close_dx_0 -= dx_i_0;
                 boids[j].close_dy_0 -= dy_i_0;
             }
-            // If not in protected range, is the boid in the visual range?
-            else // if (squared_distance_0 < visualRangeSquared)
+            
+            else // Boid is in the visual range
             {
-                // Add other boid's x/y-coord and x/y vel to accumulator variables
+                // Add other boid's x/y-coord and x/y vel to accumulator variables to boids
                 boids[i_0].xpos_avg_0 += boids[j].x;
                 boids[i_0].ypos_avg_0 += boids[j].y;
                 boids[i_0].xvel_avg_0 += boids[j].vx;
                 boids[i_0].yvel_avg_0 += boids[j].vy;
-
+                // Add boid's x/y-coord and x/y vel to accumulator variables to other boids
                 boids[j].xpos_avg_0 += boids[i_0].x;
                 boids[j].ypos_avg_0 += boids[i_0].y;
                 boids[j].xvel_avg_0 += boids[i_0].vx;
                 boids[j].yvel_avg_0 += boids[i_0].vy;
 
-                // Increment number of boids within visual range
+                // Increment number of boids within visual range to both the current and other boid
                 boids[i_0].neighboring_boids_0++;
                 boids[j].neighboring_boids_0++;
             }
@@ -270,6 +280,7 @@ void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1, bool second_cycle)
 // Boid_algo initial calculation for i_1 boid
 void boid_algo_init_calc_core1(uint16_t i_0, uint16_t i_1, bool second_cycle)
 {
+    // Initializes values only needed for each boid cycle
     fix15 squared_distance_1;
     fix15 dx_i_1;
     fix15 dy_i_1;
@@ -281,6 +292,7 @@ void boid_algo_init_calc_core1(uint16_t i_0, uint16_t i_1, bool second_cycle)
     uint16_t upper = i_1 - 1;
     uint16_t lower = half_N_boids - 1;
 
+    // If first cycle, then calculate core 0 boid update. Cycles alternate each time step
     if (second_cycle)
     {
         upper = half_N_boids - 1;
@@ -291,36 +303,36 @@ void boid_algo_init_calc_core1(uint16_t i_0, uint16_t i_1, bool second_cycle)
     {
         dx_i_1 = boids[i_1].x - boids[j].x;
         dy_i_1 = boids[i_1].y - boids[j].y;
+
         // Are both those differences less than the visual range?
         if (absfix15(dx_i_1) < visualRange && absfix15(dy_i_1) < visualRange)
         {
-            // If so, calculate the squared distance
-            // squared_distance_1 = multfix15(dx_i_1,dx_i_1) + multfix15(dy_i_1,dy_i_1);
-
-            // Is squared distance less than the protected range?
+            // Are both those differences less than the protected range?
             if (absfix15(dx_i_1) < protectedRange && absfix15(dy_i_1) < protectedRange)
             {
-                // If so, calculate difference in x/y-coordinates to nearfield boid
+                // If so, add dx and dy to close_dx and close_dy for current boid
                 boids[i_1].close_dx_1 += dx_i_1;
                 boids[i_1].close_dy_1 += dy_i_1;
+
+                // If so, subtract dx and dy to close_dx and close_dy for other boid
                 boids[j].close_dx_1 -= dx_i_1;
                 boids[j].close_dy_1 -= dy_i_1;
             }
-            // If not in protected range, is the boid in the visual range?
-            else // if (squared_distance_1 < visualRangeSquared)
+            else // Boid is in the visual range
             {
-                // Add other boid's x/y-coord and x/y vel to accumulator variables
+                // Add other boid's x/y-coord and x/y vel to accumulator variables to boids
                 boids[i_1].xpos_avg_1 += boids[j].x;
                 boids[i_1].ypos_avg_1 += boids[j].y;
                 boids[i_1].xvel_avg_1 += boids[j].vx;
                 boids[i_1].yvel_avg_1 += boids[j].vy;
 
+                // Add boid's x/y-coord and x/y vel to accumulator variables to other boids
                 boids[j].xpos_avg_1 += boids[i_1].x;
                 boids[j].ypos_avg_1 += boids[i_1].y;
                 boids[j].xvel_avg_1 += boids[i_1].vx;
                 boids[j].yvel_avg_1 += boids[i_1].vy;
 
-                // Increment number of boids within visual range
+                // Increment number of boids within visual range to both the current and other boid
                 boids[i_1].neighboring_boids_1++;
                 boids[j].neighboring_boids_1++;
             }
@@ -350,21 +362,23 @@ void boid_algo_init_calc_core1(uint16_t i_0, uint16_t i_1, bool second_cycle)
 // Update the x and y positions of each boid
 void boid_algo_update(uint16_t i_update)
 {
+    // Sum the values from each core for boid update
     fix15 close_dx = boids[i_update].close_dx_0 + boids[i_update].close_dx_1;
     fix15 close_dy = boids[i_update].close_dy_0 + boids[i_update].close_dy_1;
     fix15 xpos_avg = boids[i_update].xpos_avg_0 + boids[i_update].xpos_avg_1;
     fix15 ypos_avg = boids[i_update].ypos_avg_0 + boids[i_update].ypos_avg_1;
     fix15 xvel_avg = boids[i_update].xvel_avg_0 + boids[i_update].xvel_avg_1;
-    ;
     fix15 yvel_avg = boids[i_update].yvel_avg_0 + boids[i_update].yvel_avg_1;
     uint16_t neighboring_boids = boids[i_update].neighboring_boids_0 + boids[i_update].neighboring_boids_1;
+
+    // Initializes values only needed for each boid update
     fix15 neighboring_boids_div;
     fix15 fin_xpos_avg;
     fix15 fin_ypos_avg;
     fix15 fin_xvel_avg;
     fix15 fin_yvel_avg;
-
     fix15 speed;
+
     // If there were any boids in the visual range
     if (neighboring_boids > 0)
     {
@@ -427,7 +441,7 @@ void boid_algo_update(uint16_t i_update)
             boids[i_update].vx = boids[i_update].vx - turnfactor;
         }
     }
-    else // should_draw == 2 --> draw 2 lines
+    else // should_draw == 2 --> draw 2 lines, wrap only on top and bottom
     {
         if (boids[i_update].y < int2fix15(y_screen_top))
         {
@@ -470,9 +484,11 @@ void boid_algo_update(uint16_t i_update)
     //////////////////////////////////
 
     // Calculate the boid's speed
-    // Slow step! Lookup the "alpha max plus beta min" algorithm
+    // Calculated using the alpha beta max algorithm
+    // speed = 1*v_max + 1/4 * v_min --> shift by 2 instead of multiply 0.25
     if (absfix15(boids[i_update].vx) < absfix15(boids[i_update].vy))
     {
+
         speed = absfix15(boids[i_update].vy) + (absfix15(boids[i_update].vx) >> 2);
     }
     else
@@ -543,7 +559,7 @@ void predator_algo(uint8_t l)
             predators[l].vx = predators[l].vx - turnfactor;
         }
     }
-    else // should_draw == 2 --> draw 2 lines
+    else // should_draw == 2 --> draw 2 lines, wrap only on top and bottom
     {
         if (predators[l].y < int2fix15(y_screen_top))
         {
@@ -564,8 +580,7 @@ void predator_algo(uint8_t l)
     }
     //////////////////////////////////
 
-    // Calculate the boid's speed
-    // Slow step! Lookup the "alpha max plus beta min" algorithm
+    // Calculate the predator's speed
     if (absfix15(predators[l].vx) < absfix15(predators[l].vy))
     {
         speed = absfix15(predators[l].vy) + (absfix15(predators[l].vx) >> 2);
@@ -645,6 +660,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         }
         else if (strcmp(cmd, "draw") == 0)
         {
+            // Draws either the 2 vertical lines, the box, or nothing depending on the request
             if (strcmp(arg1, "line") == 0)
             {
                 should_draw = 2;
@@ -671,7 +687,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 drawVLine(x_margin_right_V_line, y_margin_top_line, y_change_margin_line, BLACK);
             }
         }
-        //
+        // For each parameter, the serial monitor reads the parameter value and alters it
         else if (strcmp(cmd, "turnfactor") == 0)
         {
             if (arg1 != NULL)
@@ -684,7 +700,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             if (arg1 != NULL)
             {
                 visualRange = int2fix15(atoi(arg1));
-                // visualRangeSquared = multfix15(visualRange, visualRange);
             }
         }
         else if (strcmp(cmd, "protectedrange") == 0)
@@ -692,7 +707,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             if (arg1 != NULL)
             {
                 protectedRange = int2fix15(atoi(arg1));
-                // protectedRangeSquared = multfix15(protectedRange, protectedRange);
             }
         }
         else if (strcmp(cmd, "centeringfactor") == 0)
@@ -718,6 +732,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         }
         else if (strcmp(cmd, "numberBoids") == 0)
         {
+            // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
                 for (uint16_t i = 0; i < curr_N_boids; i++)
@@ -744,6 +759,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         }
         else if (strcmp(cmd, "numberPredators") == 0)
         {
+            // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
                 for (uint16_t i = 0; i < curr_N_boids; i++)
@@ -753,7 +769,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
 
                 for (uint8_t l = 0; l < curr_N_predators; l++)
                 {
-                    // erase boid
                     drawRect(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, 2, BLACK);
                 }
                 curr_N_predators = (uint8_t)(atoi(arg1));
@@ -841,6 +856,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_algo_update(current_boid_0);
             // draw the boid at its new position
             drawPixel(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), WHITE);
+            // Set all values needed for boid calculate back to 0
             boids[current_boid_0].xpos_avg_0 = 0;
             boids[current_boid_0].ypos_avg_0 = 0;
             boids[current_boid_0].xvel_avg_0 = 0;
@@ -883,15 +899,13 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         {
             spare_time_0 = FRAME_RATE - (time_us_32() - begin_time_0);
 
-            // Display text: Number of boids, frame rate, time elapsed
+            // Display text on VGA display: Number of boids, frame rate, time elapsed
 
             total_time_0 = time_us_32() / 1000000;
 
             sprintf(str1, "Time=%d", total_time_0);
 
             sprintf(str2, "Spare Time=%d", spare_time_0);
-
-            // sprintf(str3, "Frame Rate=%dus/frame", FRAME_RATE);
 
             sprintf(str4, "Boids=%d", curr_N_boids);
 
@@ -905,11 +919,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             setTextColor(WHITE);
             setTextSize(1);
             writeString(str2);
-
-            //   setCursor(10,40);
-            //   setTextColor(WHITE);
-            //   setTextSize(1);
-            //   writeString(str3);
 
             setCursor(10, 40);
             setTextColor(WHITE);
@@ -984,11 +993,11 @@ static PT_THREAD(protothread_anim1(struct pt *pt))
         {
             // erase boid
             drawPixel(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), BLACK);
-
             // boid_combine_values(current_boid_1);
             boid_algo_update(current_boid_1);
             // draw the boid at its new position
             drawPixel(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), WHITE);
+            // Set all values needed for boid calculate back to 0
             boids[current_boid_1].xpos_avg_0 = 0;
             boids[current_boid_1].ypos_avg_0 = 0;
             boids[current_boid_1].xvel_avg_0 = 0;
