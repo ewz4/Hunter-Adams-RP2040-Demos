@@ -1,11 +1,12 @@
 
 /**
- * Cheats (removed squared distance, every other boid)
+ * Rafael Gottlieb (rdg244)
+ * Eric Zhang (ewz4)
  *
- * Hunter Adams (vha3@cornell.edu)
+ * Code adapted from Hunter Adams (vha3@cornell.edu)
  *
- * This demonstration animates two balls bouncing about the screen.
- * Through a serial interface, the user can change the ball color.
+ * This code depicts the boids algorithm with a few optimizations and
+ * cheats to maximize the flock size.
  *
  * HARDWARE CONNECTIONS
  *  - GPIO 16 ---> VGA Hsync
@@ -18,11 +19,11 @@
  * RESOURCES USED
  *  - PIO state machines 0, 1, and 2 on PIO instance 0
  *  - DMA channels 0, 1
- *  - 153.6 kBytes of RAM (for pixel color data)
+ *
  *
  */
 
-// Include the VGA grahics library
+// Include the VGA graphics library
 #include "vga_graphics.h"
 // Include standard libraries
 #include <stdio.h>
@@ -104,9 +105,9 @@ struct predator
 };
 
 // Initializing boids
-#define N_boids 1209 // Total # of possible boids
+#define N_boids 1209          // Total # of possible boids
 uint16_t curr_N_boids = 1209; // Current # of boids
-uint16_t half_N_boids = 604; 
+uint16_t half_N_boids = 604;
 struct boid boids[N_boids];
 
 // Initializing boid parameters
@@ -120,7 +121,7 @@ fix15 maxspeed = int2fix15(6);
 fix15 minspeed = int2fix15(3);
 
 // Initializing predator s
-#define N_predators 5 // Total # of possible predators
+#define N_predators 5         // Total # of possible predators
 uint8_t curr_N_predators = 0; // Current # of predators
 struct predator predators[N_predators];
 
@@ -236,7 +237,7 @@ void boid_algo_init_calc_core0(uint16_t i_0, uint16_t i_1, bool second_cycle)
                 boids[j].close_dx_0 -= dx_i_0;
                 boids[j].close_dy_0 -= dy_i_0;
             }
-            
+
             else // Boid is in the visual range
             {
                 // Add other boid's x/y-coord and x/y vel to accumulator variables to boids
@@ -496,7 +497,6 @@ void boid_algo_update(uint16_t i_update)
         speed = absfix15(boids[i_update].vx) + (absfix15(boids[i_update].vy) >> 2);
     }
 
-    // Can speed this up by multiplying by a fix constant instead of normalizing
     if (speed > maxspeed)
     {
         boids[i_update].vx = boids[i_update].vx - (boids[i_update].vx >> 2);
@@ -519,7 +519,7 @@ void boid_algo_update(uint16_t i_update)
 void predator_algo(uint8_t l)
 {
     fix15 speed;
-    // If the boid is near an edge, make it turn by turnfactor
+    // If the predator is near an edge, make it turn by turnfactor
     // (this describes a box, will vary based on boundary conditions)
     if (should_draw == 0) // wrap everywhere
     {
@@ -578,7 +578,6 @@ void predator_algo(uint8_t l)
             predators[l].vx = predators[l].vx - turnfactor;
         }
     }
-    //////////////////////////////////
 
     // Calculate the predator's speed
     if (absfix15(predators[l].vx) < absfix15(predators[l].vy))
@@ -786,7 +785,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             printf("Huh?\n\r");
     } // END WHILE(1)
     PT_END(pt);
-} // timer thread
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -807,10 +806,12 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     // char str3[25];
     char str4[11];
 
+    // Spawn first half of boid flock
     for (uint16_t current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
     {
         spawn(&boids[current_boid_0].x, &boids[current_boid_0].y, &boids[current_boid_0].vx, &boids[current_boid_0].vy);
     }
+
     // Spawn all predators
     for (uint8_t l = 0; l < curr_N_predators; l++)
     {
@@ -824,11 +825,11 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     }
     still_running_1_spawn = true;
 
+    // Initialize boolean for tracking every other cycle
     bool second_cycle = false;
 
     while (1)
     {
-
         // Measure time at start of thread
         begin_time_0 = time_us_32();
         uint16_t current_boid_1 = curr_N_boids - 1;
@@ -839,10 +840,12 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_algo_init_calc_core0(current_boid_0, current_boid_1, second_cycle);
             current_boid_1--;
         }
+
+        // Toggle every other cycle flag
         second_cycle = !second_cycle;
 
-        still_running_0_current_update = false;
         // Wait until core 1 has finished updating
+        still_running_0_current_update = false;
         while (still_running_1_current_update == true)
         {
         }
@@ -850,12 +853,15 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         for (uint16_t current_boid_0 = 0; current_boid_0 < half_N_boids; current_boid_0++)
         {
-            // erase boid
+            // Erase boid
             drawPixel(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), BLACK);
-            // boid_combine_values(current_boid_0); // TODO: Move this to be inside boid_algo_update
+
+            // Update boid state
             boid_algo_update(current_boid_0);
-            // draw the boid at its new position
+
+            // Draw the boid at its new position
             drawPixel(fix2int15(boids[current_boid_0].x), fix2int15(boids[current_boid_0].y), WHITE);
+
             // Set all values needed for boid calculate back to 0
             boids[current_boid_0].xpos_avg_0 = 0;
             boids[current_boid_0].ypos_avg_0 = 0;
@@ -876,6 +882,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boids[current_boid_0].predator_dx = 0;
             boids[current_boid_0].predator_dy = 0;
         }
+
+        // Wait until core 1 to finish drawing
         still_running_0_draw = false;
         while (still_running_1_draw == true)
         {
@@ -884,15 +892,15 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
         {
-            // erase predator
+            // Erase predator
             drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, BLACK);
-            // update boid's position and velocity
+            // Update predator's position and velocity
             predator_algo(current_predator);
-            // draw the boid at its new position
+            // Draw the predator at its new position
             drawRect(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, 2, RED);
         }
 
-        // draw the boundaries
+        // Draw the boundaries
         drawArena(should_draw);
 
         if (counter_0 > 30)
@@ -902,11 +910,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             // Display text on VGA display: Number of boids, frame rate, time elapsed
 
             total_time_0 = time_us_32() / 1000000;
-
             sprintf(str1, "Time=%d", total_time_0);
-
             sprintf(str2, "Spare Time=%d", spare_time_0);
-
             sprintf(str4, "Boids=%d", curr_N_boids);
 
             fillRect(0, 0, 150, 70, BLACK);
@@ -930,14 +935,15 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         counter_0++;
 
-        // yield for necessary amount of time
+        // Yield for necessary amount of time
         PT_YIELD_usec(spare_time_0);
+
+        // Wait for core 1 to complete
         still_running_0_string_output = false;
         while (still_running_1_string_output == true)
         {
         }
         still_running_1_string_output = true;
-        // PT_YIELD_usec(1000000);
         // NEVER exit while
     } // END WHILE(1)
     PT_END(pt);
@@ -956,34 +962,39 @@ static PT_THREAD(protothread_anim1(struct pt *pt))
     static int begin_time_1;
     static int spare_time_1;
 
+    // Spawn second half of boid flock
     for (uint16_t current_boid_1 = curr_N_boids - 1; current_boid_1 > half_N_boids - 1; current_boid_1--)
     {
         spawn(&boids[current_boid_1].x, &boids[current_boid_1].y, &boids[current_boid_1].vx, &boids[current_boid_1].vy);
     }
+
+    // Wait for
     still_running_1_spawn = false;
     while (still_running_0_spawn == true)
     {
     }
     still_running_0_spawn = true;
+
     bool second_cycle = false;
 
     while (1)
     {
         // Measure time at start of thread
         begin_time_1 = time_us_32();
+
         uint16_t current_boid_0 = 0;
         for (uint16_t current_boid_1 = curr_N_boids - 1; current_boid_1 > half_N_boids - 1; current_boid_1--)
         {
-
-            // update boid's position and velocity
+            // Update boid's position and velocity
             boid_algo_init_calc_core1(current_boid_0, current_boid_1, second_cycle);
-
             current_boid_0++;
         }
+
+        // Toggle every other cycle flag
         second_cycle = !second_cycle;
 
-        still_running_1_current_update = false;
         // Wait until core 0 has finished updating
+        still_running_1_current_update = false;
         while (still_running_0_current_update == true)
         {
         }
@@ -991,12 +1002,15 @@ static PT_THREAD(protothread_anim1(struct pt *pt))
 
         for (uint16_t current_boid_1 = curr_N_boids - 1; current_boid_1 > half_N_boids - 1; current_boid_1--)
         {
-            // erase boid
+            // Erase boid
             drawPixel(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), BLACK);
-            // boid_combine_values(current_boid_1);
+
+            // Update boid state
             boid_algo_update(current_boid_1);
-            // draw the boid at its new position
+
+            // Draw the boid at its new position
             drawPixel(fix2int15(boids[current_boid_1].x), fix2int15(boids[current_boid_1].y), WHITE);
+
             // Set all values needed for boid calculate back to 0
             boids[current_boid_1].xpos_avg_0 = 0;
             boids[current_boid_1].ypos_avg_0 = 0;
@@ -1016,28 +1030,28 @@ static PT_THREAD(protothread_anim1(struct pt *pt))
             boids[current_boid_1].predator_dx = 0;
             boids[current_boid_1].predator_dy = 0;
         }
-        still_running_1_draw = false;
 
-        // TODO: change this to the protothreads wait
+        // Wait for core 0 to stop drawing
+        still_running_1_draw = false;
         while (still_running_0_draw == true)
         {
         }
         still_running_0_draw = true;
 
-        // draw the boundaries
+        // Draw the boundaries
         drawArena(should_draw);
 
         spare_time_1 = FRAME_RATE - (time_us_32() - begin_time_1);
 
-        // yield for necessary amount of time
+        // Yield for necessary amount of time
         PT_YIELD_usec(spare_time_1);
 
+        // Wait for core 0 to complete
         still_running_1_string_output = false;
         while (still_running_0_string_output == true)
         {
         }
         still_running_0_string_output = true;
-        // PT_YIELD_usec(1000000);
         // NEVER exit while
     } // END WHILE(1)
 
