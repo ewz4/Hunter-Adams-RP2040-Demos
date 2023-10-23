@@ -81,6 +81,19 @@ fix15 adjust_angle = int2fix15(90);
 
 volatile int counter_0 = 0;
 
+// Controller Parameters
+fix15 angle_reference = 0;
+fix15 error ;
+fix15 last_error = 0;
+fix15 proportional ;
+fix15 integral ;
+fix15 derivative ;
+fix15 integral_wind_up = 2000;
+fix15 kp = 0;
+fix15 ki = 0;
+fix15 kd = 0;
+volatile int controller = 0;
+
 // Interrupt service routine
 void on_pwm_wrap()
 {
@@ -99,6 +112,62 @@ void on_pwm_wrap()
     accel_angle = multfix15(float2fix15(atan2(filtered_ay, filtered_az) + 1.5708), float2fix15(180 / M_PI));
     gyro_angle_delta = multfix15(gyro[0], time_gyro);
     complementary_angle = multfix15(complementary_angle + gyro_angle_delta, zeroopt999) + multfix15(accel_angle, zeroopt001);
+
+    // Controller Calculation
+    
+    if (controller = 0)
+    {
+        // Do nothing
+    }
+    else
+    {
+        last_error = error ;
+        error = angle_reference - complementary_angle ;
+
+        // Calculate controller values
+        poportional = multfix15(kp, error);
+
+        integral += error;
+        // Avoid integral wind up
+        if (sign(integral) != sign(integral))
+        {
+            integral = 0;
+        }
+        else if (integral > integral_wind_up)
+        {
+            integral = integral_wind_up;
+        }
+        else if (integral < -integral_wind_up)
+        {
+            integral = -integral_wind_up;
+        }
+
+        derviative = multfix15(kd, (error - last_error));
+
+        else if (controller = 1)
+        {
+            // P controller
+            control = fix2int15(proportional);
+        }
+        else if (controller = 2)
+        {
+            // PI controller
+            control = fix2int15(proportional + multfix15(integral,ki))
+        }
+        else if (controller = 3)
+        {
+            // PD controller
+            control = fix2int15(proportional + derivative)
+        }
+        else if (controller = 4)
+        {
+            // PID controller
+            control = fix2int15(proportional + derivative + multfix15(integral,ki))
+        }
+        if (control > 5000) control = 5000;
+        else if (control < 0) control = 0;
+    }
+    
 
     // Update duty cycle
     if (control != old_control)
@@ -236,46 +305,159 @@ static PT_THREAD(protothread_vga(struct pt *pt))
 static PT_THREAD(protothread_serial(struct pt *pt))
 {
     PT_BEGIN(pt);
-    static char classifier;
-    static int test_in;
-    static float float_in;
+    // From example
+    // static char classifier;
+    // static int test_in;
+    // static float float_in;
+
+    // My own
+    static char cmd[16], arg1[6];
+    static char *token;
     while (1)
     {
-        sprintf(pt_serial_out_buffer, "input a command: ");
+        // print prompt
+        sprintf(pt_serial_out_buffer, "Enter Command> ");
+        // spawn a thread to do the non-blocking write
         serial_write;
+
         // spawn a thread to do the non-blocking serial read
         serial_read;
-        // convert input string to number
-        sscanf(pt_serial_in_buffer, "%c", &classifier);
 
-        // num_independents = test_in ;
-        if (classifier == 't')
+        //  tokenize
+        token = strtok(pt_serial_in_buffer, " ");
+        strcpy(cmd, token);
+        token = strtok(NULL, " ");
+        strcpy(arg1, token);
+
+        // parse by command
+        if (strcmp(cmd, "help") == 0)
         {
-            sprintf(pt_serial_out_buffer, "timestep: ");
-            serial_write;
-            serial_read;
-            // convert input string to number
-            sscanf(pt_serial_in_buffer, "%d", &test_in);
-            if (test_in > 0)
+        // List commands
+        printf("timestep\n\r");
+        printf("duty cycle -- (0-5000 only)\n\r");
+        printf('desired angle')
+        printf("set control none\n\r");
+        printf("set control P\n\r");
+        printf("set control PI\n\r");
+        printf("set control PD\n\r");
+        printf("set control PID\n\r");
+        printf("kp\n\r");
+        printf("ki\n\r");
+        printf("kd\n\r");
+        printf("integral wind up\n\r")
+        }
+        else if (strcmp(cmd, "timestep"))
+        {
+            if (arg1 != NULL)
             {
-                threshold = test_in;
+                threshold = (int)(atof(arg1));
             }
         }
-        if (classifier == 'd')
+        else if (strcmp(cmd, "duty cycle"))
         {
-            sprintf(pt_serial_out_buffer, "input a duty cycle (0-5000): ");
-            serial_write;
-            serial_read;
-            // convert input string to number
-            sscanf(pt_serial_in_buffer, "%d", &test_in);
-            if (test_in > 5000)
-                continue;
-            else if (test_in < 0)
-                continue;
-            else
-                control = test_in;
+            if (arg1 != NULL)
+            {
+                test_in = (int)(atof(arg1));
+                if (test_in > 5000) continue;
+                else if (test_in < 0) continue;
+                else control = test_in;
+            }
+        }
+        else if (strcmp(cmd, "desried angle"))
+        {
+            if (arg1 != NULL)
+            {
+                angle_reference = float2fix15(atof(arg1));
+            }
+        }
+        else if (strcmp(cmd, "set control") == 0)
+        {
+            if (strcmp(arg1, "none") == 0)
+            {
+                controller = 0;
+            }
+            if (strcmp(arg1, "P") == 0)
+            {
+                controller = 1;
+            }
+            else if (strcmp(arg1, "PI") == 0)
+            {
+                controller = 2;
+            }
+            else if (strcmp(arg1, "PD") == 0)
+            {
+                controller = 3;
+            }
+            else if (strcmp(arg1, "PID") == 0)
+            {
+                controller = 4;
+            }
+        }
+        else if (strcmp(cmd, "kp") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                kp = float2fix15(atof(arg1));
+            }
+        }
+        else if (strcmp(cmd, "ki") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                ki = float2fix15(atof(arg1));
+            }
+        }
+        else if (strcmp(cmd, "kd") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                kd = float2fix15(atof(arg1));
+            }
+        } 
+        else if (strcmp(cmd, "integral wind up") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                integral_wind_up = float2fix15(atof(arg1));
+            }
         }
     }
+    // {
+    //     sprintf(pt_serial_out_buffer, "input a command: ");
+    //     serial_write;
+    //     // spawn a thread to do the non-blocking serial read
+    //     serial_read;
+    //     // convert input string to number
+    //     sscanf(pt_serial_in_buffer, "%c", &classifier);
+
+    //     // num_independents = test_in ;
+    //     if (classifier == 't')
+    //     {
+    //         sprintf(pt_serial_out_buffer, "timestep: ");
+    //         serial_write;
+    //         serial_read;
+    //         // convert input string to number
+    //         sscanf(pt_serial_in_buffer, "%d", &test_in);
+    //         if (test_in > 0)
+    //         {
+    //             threshold = test_in;
+    //         }
+    //     }
+    //     if (classifier == 'd')
+    //     {
+    //         sprintf(pt_serial_out_buffer, "input a duty cycle (0-5000): ");
+    //         serial_write;
+    //         serial_read;
+    //         // convert input string to number
+    //         sscanf(pt_serial_in_buffer, "%d", &test_in);
+    //         if (test_in > 5000)
+    //             continue;
+    //         else if (test_in < 0)
+    //             continue;
+    //         else
+    //             control = test_in;
+    //     }
+    // }
     PT_END(pt);
 }
 
