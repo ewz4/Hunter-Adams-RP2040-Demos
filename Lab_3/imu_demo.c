@@ -88,7 +88,7 @@ fix15 last_error = 0;
 fix15 proportional ;
 fix15 integral ;
 fix15 derivative ;
-fix15 integral_wind_up = 2000;
+fix15 integral_wind_up = int2fix15(500);
 fix15 kp = 0;
 fix15 ki = 0;
 fix15 kd = 0;
@@ -115,7 +115,7 @@ void on_pwm_wrap()
 
     // Controller Calculation
     
-    if (controller = 0)
+    if (controller == 0)
     {
         // Do nothing
     }
@@ -125,11 +125,11 @@ void on_pwm_wrap()
         error = angle_reference - complementary_angle ;
 
         // Calculate controller values
-        poportional = multfix15(kp, error);
+        proportional = multfix15(kp, error);
 
         integral += error;
         // Avoid integral wind up
-        if (sign(integral) != sign(integral))
+        if ((error < 0) != (last_error < 0))
         {
             integral = 0;
         }
@@ -142,27 +142,27 @@ void on_pwm_wrap()
             integral = -integral_wind_up;
         }
 
-        derviative = multfix15(kd, (error - last_error));
+        derivative = multfix15(kd, (error - last_error));
 
-        else if (controller = 1)
+        if (controller == 1)
         {
             // P controller
             control = fix2int15(proportional);
         }
-        else if (controller = 2)
+        else if (controller == 2)
         {
             // PI controller
-            control = fix2int15(proportional + multfix15(integral,ki))
+            control = fix2int15(proportional + multfix15(integral,ki));
         }
-        else if (controller = 3)
+        else if (controller == 3)
         {
             // PD controller
-            control = fix2int15(proportional + derivative)
+            control = fix2int15(proportional + derivative);
         }
-        else if (controller = 4)
+        else if (controller == 4)
         {
             // PID controller
-            control = fix2int15(proportional + derivative + multfix15(integral,ki))
+            control = fix2int15(proportional + derivative + multfix15(integral,ki));
         }
         if (control > 5000) control = 5000;
         else if (control < 0) control = 0;
@@ -268,21 +268,50 @@ static PT_THREAD(protothread_vga(struct pt *pt))
             drawPixel(xcoord, 430 - (int)((float)(fix2int15(complementary_angle)) * 150 / 180), GREEN);
 
             // Plot Duty Cycle
+            drawPixel(xcoord, 230 - (int)((float)(fix2int15(proportional))*150 / 5000), WHITE);
+            drawPixel(xcoord, 230 - (int)((float)(fix2int15(derivative))*150 / 5000), RED);
+            drawPixel(xcoord, 230 - (int)((float)(fix2int15(integral))*150 / 5000), CYAN);
             drawPixel(xcoord, 230 - (int)((float)(control)*150 / 5000), GREEN);
 
             if (counter_0 > 30)
             {
-                fillRect(500, 25, 600, 70, BLACK);
-                sprintf(screentext, "Comp_angle=%d", fix2int15(complementary_angle));
+                fillRect(500, 10, 600, 80, BLACK);
+                sprintf(screentext, "Duty Cycle=%d", control);
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(500, 10);
+                writeString(screentext);
+                sprintf(screentext, "Desired Angle = %d", fix2int15(angle_reference));
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(500, 20);
+                writeString(screentext);
+                sprintf(screentext, "Current angle = %d", fix2int15(complementary_angle));
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(500, 30);
+                writeString(screentext);
+                sprintf(screentext, "Error = %d", fix2int15(error));
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(500, 40);
+                writeString(screentext);
+                sprintf(screentext, "kp =%d", fix2int15(kp));
                 setTextColor(WHITE);
                 setTextSize(1);
                 setCursor(500, 50);
                 writeString(screentext);
-                sprintf(screentext, "Duty Cycle=%d", control);
+                sprintf(screentext, "ki=%d", fix2int15(ki));
                 setTextColor(WHITE);
                 setTextSize(1);
-                setCursor(500, 25);
+                setCursor(500, 60);
                 writeString(screentext);
+                sprintf(screentext, "kd=%d", fix2int15(kd));
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(500, 70);
+                writeString(screentext);
+                
                 counter_0 = 0;
             }
             counter_0++;
@@ -310,8 +339,16 @@ static PT_THREAD(protothread_serial(struct pt *pt))
     // static int test_in;
     // static float float_in;
 
+    // wait for 1 sec
+    PT_YIELD_usec(1000000);
+
+    // announce the threader version
+    sprintf(pt_serial_out_buffer, "Protothreads RP2040 v1.0\n\r");
+    // non-blocking write
+    serial_write;
+
     // My own
-    static char cmd[16], arg1[6];
+    static char cmd[20], arg1[10];
     static char *token;
     while (1)
     {
@@ -323,7 +360,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         // spawn a thread to do the non-blocking serial read
         serial_read;
 
-        //  tokenize
+        // tokenize
         token = strtok(pt_serial_in_buffer, " ");
         strcpy(cmd, token);
         token = strtok(NULL, " ");
@@ -332,45 +369,46 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         // parse by command
         if (strcmp(cmd, "help") == 0)
         {
-        // List commands
-        printf("timestep\n\r");
-        printf("duty cycle -- (0-5000 only)\n\r");
-        printf('desired angle')
-        printf("set control none\n\r");
-        printf("set control P\n\r");
-        printf("set control PI\n\r");
-        printf("set control PD\n\r");
-        printf("set control PID\n\r");
-        printf("kp\n\r");
-        printf("ki\n\r");
-        printf("kd\n\r");
-        printf("integral wind up\n\r")
+            // List commands
+            printf("timestep\n\r");
+            printf("dutycycle -- (0-5000 only)\n\r");
+            printf("desiredangle\n\r");
+            printf("setcontrol none\n\r");
+            printf("setcontrol P\n\r");
+            printf("setcontrol PI\n\r");
+            printf("setcontrol PD\n\r");
+            printf("setcontrol PID\n\r");
+            printf("kp\n\r");
+            printf("ki\n\r");
+            printf("kd\n\r");
+            printf("integralwindup\n\r");
+            printf("stop\n\r");
         }
-        else if (strcmp(cmd, "timestep"))
+        else if (strcmp(cmd, "timestep") == 0)
         {
             if (arg1 != NULL)
             {
-                threshold = (int)(atof(arg1));
+                threshold = atoi(arg1);
             }
         }
-        else if (strcmp(cmd, "duty cycle"))
+        else if (strcmp(cmd, "dutycycle") == 0)
         {
+            // printf("HELLOOOOO???");
             if (arg1 != NULL)
             {
-                test_in = (int)(atof(arg1));
-                if (test_in > 5000) continue;
-                else if (test_in < 0) continue;
-                else control = test_in;
+                // printf("?????????");
+                control = atoi(arg1);
+                // printf("control = %d\n", control);
             }
         }
-        else if (strcmp(cmd, "desried angle"))
+        else if (strcmp(cmd, "desiredangle") == 0)
         {
             if (arg1 != NULL)
             {
                 angle_reference = float2fix15(atof(arg1));
             }
         }
-        else if (strcmp(cmd, "set control") == 0)
+        else if (strcmp(cmd, "setcontrol") == 0)
         {
             if (strcmp(arg1, "none") == 0)
             {
@@ -391,6 +429,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             else if (strcmp(arg1, "PID") == 0)
             {
                 controller = 4;
+                // printf("controller =%d", controller);
             }
         }
         else if (strcmp(cmd, "kp") == 0)
@@ -414,12 +453,20 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 kd = float2fix15(atof(arg1));
             }
         } 
-        else if (strcmp(cmd, "integral wind up") == 0)
+        else if (strcmp(cmd, "integralwindup") == 0)
         {
             if (arg1 != NULL)
             {
                 integral_wind_up = float2fix15(atof(arg1));
             }
+        }
+        else if (strcmp(cmd, "stop") == 0)
+        {
+            controller = 0;
+            control = 0;
+        }
+        else {
+            printf("Huh?\n\r");
         }
     }
     // {
