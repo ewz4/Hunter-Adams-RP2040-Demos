@@ -15,7 +15,7 @@
  *  - GPIO 20 ---> 330 ohm resistor ---> VGA Blue
  *  - RP2040 GND ---> VGA GND
  *  - GPIO 8 ---> MPU6050 SDA
- *  - GPIO 9 ---> MPU6050 SCL
+ *  - GPIO 7 ---> MPU6050 SCL
  *  - 3.3v ---> MPU6050 VCC
  *  - RP2040 GND ---> MPU6050 GND
  *  - GPIO 5 ---> PWM output
@@ -36,6 +36,8 @@
 #include "hardware/adc.h"
 #include "hardware/pio.h"
 #include "hardware/i2c.h"
+#include "hardware/sync.h"
+#include "hardware/spi.h"
 // Include custom libraries
 #include "vga_graphics.h"
 #include "mpu6050.h"
@@ -87,12 +89,20 @@ fix15 error ;
 fix15 last_error = 0;
 fix15 proportional ;
 fix15 integral ;
+fix15 integral_part ;
+fix15 integral_proportion = float2fix15(0.8);
 fix15 derivative ;
-fix15 integral_wind_up = int2fix15(500);
+fix15 integral_wind_up = int2fix15(5000);
 fix15 kp = 0;
 fix15 ki = 0;
 fix15 kd = 0;
 volatile int controller = 0;
+
+// Button
+bool pressed = false;
+uint32_t t1 = 0;
+uint32_t t2 = 0;
+uint32_t t3 = 0;
 
 // Interrupt service routine
 void on_pwm_wrap()
@@ -128,18 +138,23 @@ void on_pwm_wrap()
         proportional = multfix15(kp, error);
 
         integral += error;
+        
         // Avoid integral wind up
         if ((error < 0) != (last_error < 0))
         {
-            integral = 0;
+            // integral = multfix15(integral, integral_proportion);
+            integral -= error;
         }
-        else if (integral > integral_wind_up)
+
+        integral_part = multfix15(integral,ki);
+        
+        if (integral_part > integral_wind_up)
         {
-            integral = integral_wind_up;
+            integral_part = integral_wind_up;
         }
-        else if (integral < -integral_wind_up)
+        else if (integral_part < -integral_wind_up)
         {
-            integral = -integral_wind_up;
+            integral_part = -integral_wind_up;
         }
 
         derivative = multfix15(kd, (error - last_error));
@@ -152,7 +167,7 @@ void on_pwm_wrap()
         else if (controller == 2)
         {
             // PI controller
-            control = fix2int15(proportional + multfix15(integral,ki));
+            control = fix2int15(proportional + integral_part);
         }
         else if (controller == 3)
         {
@@ -162,7 +177,7 @@ void on_pwm_wrap()
         else if (controller == 4)
         {
             // PID controller
-            control = fix2int15(proportional + derivative + multfix15(integral,ki));
+            control = fix2int15(proportional + derivative + integral_part);
         }
         if (control > 5000) control = 5000;
         else if (control < 0) control = 0;
@@ -222,13 +237,13 @@ static PT_THREAD(protothread_vga(struct pt *pt))
     drawHLine(75, 155, 5, CYAN);
     drawHLine(75, 80, 5, CYAN);
     drawVLine(80, 80, 150, CYAN);
-    sprintf(screentext, "2500");
+    sprintf(screentext, "0");
     setCursor(50, 150);
     writeString(screentext);
     sprintf(screentext, "5000");
     setCursor(45, 75);
     writeString(screentext);
-    sprintf(screentext, "0");
+    sprintf(screentext, "-5000");
     setCursor(45, 225);
     writeString(screentext);
 
@@ -268,10 +283,10 @@ static PT_THREAD(protothread_vga(struct pt *pt))
             drawPixel(xcoord, 430 - (int)((float)(fix2int15(complementary_angle)) * 150 / 180), GREEN);
 
             // Plot Duty Cycle
-            drawPixel(xcoord, 230 - (int)((float)(fix2int15(proportional))*150 / 5000), WHITE);
-            drawPixel(xcoord, 230 - (int)((float)(fix2int15(derivative))*150 / 5000), RED);
-            drawPixel(xcoord, 230 - (int)((float)(fix2int15(integral))*150 / 5000), CYAN);
-            drawPixel(xcoord, 230 - (int)((float)(control)*150 / 5000), GREEN);
+            drawPixel(xcoord, 155 - (int)((float)(fix2int15(proportional))*75 / 5000), WHITE);
+            drawPixel(xcoord, 155 - (int)((float)(fix2int15(derivative))*75 / 5000), RED);
+            drawPixel(xcoord, 155 - (int)((float)(fix2int15(integral_part))*75 / 5000), CYAN);
+            drawPixel(xcoord, 155 - (int)((float)(control)*75 / 5000), GREEN);
 
             if (counter_0 > 30)
             {
@@ -311,7 +326,45 @@ static PT_THREAD(protothread_vga(struct pt *pt))
                 setTextSize(1);
                 setCursor(500, 70);
                 writeString(screentext);
-                
+
+                // fillRect(70, 150, 50, 50, BLACK);
+                sprintf(screentext, "Proportional = White");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 50);
+                writeString(screentext);
+                sprintf(screentext, "Integral = Cyan");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 60);
+                writeString(screentext);
+                sprintf(screentext, "Derivative = Red");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 70);
+                writeString(screentext);
+                sprintf(screentext, "Duty Cycle = Green");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 80);
+                writeString(screentext);
+
+                // fillRect(450, 250, 500, 280, BLACK);
+                sprintf(screentext, "Accel angle = White");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 260);
+                writeString(screentext);
+                sprintf(screentext, "Gyro Angle = Red");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 270);
+                writeString(screentext);
+                sprintf(screentext, "Comp Angle = Green");
+                setTextColor(WHITE);
+                setTextSize(1);
+                setCursor(100, 280);
+                writeString(screentext);
                 counter_0 = 0;
             }
             counter_0++;
@@ -406,6 +459,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             if (arg1 != NULL)
             {
                 angle_reference = float2fix15(atof(arg1));
+                integral = 0;
             }
         }
         else if (strcmp(cmd, "setcontrol") == 0)
@@ -444,6 +498,11 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             if (arg1 != NULL)
             {
                 ki = float2fix15(atof(arg1));
+                // if (ki > 1) {
+                //     integral_wind_up = divfix(float2fix15(5000),ki);
+                // } else {
+                //     integral_wind_up = int2fix15(5000);
+                // }
             }
         }
         else if (strcmp(cmd, "kd") == 0)
@@ -468,6 +527,23 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         else {
             printf("Huh?\n\r");
         }
+
+        if (pressed)
+        {
+            uint32_t time = time_us_32();
+            if (time < t1)
+            {
+                angle_reference = int2fix15(90);
+            } else if (time < t2) {
+                angle_reference = int2fix15(120);
+            } else if (time < t3) {
+                angle_reference = int2fix15(60);
+            } else {
+                angle_reference = 0;
+                pressed = false;
+            }
+        }
+
     }
     // {
     //     sprintf(pt_serial_out_buffer, "input a command: ");
@@ -507,6 +583,75 @@ static PT_THREAD(protothread_serial(struct pt *pt))
     // }
     PT_END(pt);
 }
+
+// This thread runs on core 0
+// static PT_THREAD (protothread_button(struct pt *pt))
+// {
+//     // Indicate thread beginning
+//     PT_BEGIN(pt) ;
+
+//     // Some variables
+//     static int i ;
+//     static uint32_t keypad ;
+
+//     while(1) {
+
+//         // gpio_put(LED, !gpio_get(LED)) ;
+
+//         // Scan the keypad!
+//         for (i=0; i<KEYROWS; i++) {
+//             // Set a row high
+//             gpio_put_masked((0xF << BASE_KEYPAD_PIN),
+//                             (scancodes[i] << BASE_KEYPAD_PIN)) ;
+//             // Small delay required
+//             sleep_us(1) ; 
+//             // Read the keycode
+//             keypad = ((gpio_get_all() >> BASE_KEYPAD_PIN) & 0x7F) ;
+//             // Break if button(s) are pressed
+//             if (keypad & button) break ;
+//         }
+//         // If we found a button . . .
+//         if (keypad & button) {
+//             // Look for a valid keycode.
+//             for (i=0; i<NUMKEYS; i++) {
+//                 if (keypad == keycodes[i]) break ;
+//             }
+//             // If we don't find one, report invalid keycode
+//             if (i==NUMKEYS) (i = -1) ;
+//         }
+//         // Otherwise, indicate invalid/non-pressed buttons
+//         else (i=-1) ;
+
+//         if (i != prev_key) {
+//             if (i == 1 && !pressed)
+//             {
+//                 pressed = true;
+//                 t1 = time_us_32() + 5000000;
+//                 t2 = t1 + 5000000;
+//                 t3 = t2 + 5000000;
+//             }
+//         }
+//         if (pressed)
+//         {
+//             uint32_t time = time_us_32();
+//             if (time < t1)
+//             {
+//                 angle_reference = int2fix15(90);
+//             } else if (time < t2) {
+//                 angle_reference = int2fix15(120);
+//             } else if (time < t3) {
+//                 angle_reference = int2fix15(60);
+//             } else {
+//                 angle_reference = 0;
+//                 pressed = false;
+//             }
+//         }
+
+//         PT_YIELD_usec(30000) ;
+//     }
+//     // Indicate thread end
+//     PT_END(pt) ;
+// }
 
 // Entry point for core 1
 void core1_entry()
@@ -564,6 +709,18 @@ int main()
     // Start the channel
     pwm_set_mask_enabled((1u << slice_num));
 
+    ////////////////// KEYPAD INITS ///////////////////////
+    // Initialize the keypad GPIO's
+    // gpio_init_mask((0x7F << BASE_KEYPAD_PIN)) ;
+    // // Set row-pins to output
+    // gpio_set_dir_out_masked((0xF << BASE_KEYPAD_PIN)) ;
+    // // Set all output pins to low
+    // gpio_put_masked((0xF << BASE_KEYPAD_PIN), (0x0 << BASE_KEYPAD_PIN)) ;
+    // // Turn on pulldown resistors for column pins (on by default)
+    // gpio_pull_down((BASE_KEYPAD_PIN + 4)) ;
+    // gpio_pull_down((BASE_KEYPAD_PIN + 5)) ;
+    // gpio_pull_down((BASE_KEYPAD_PIN + 6)) ;
+
     ////////////////////////////////////////////////////////////////////////
     ///////////////////////////// ROCK AND ROLL ////////////////////////////
     ////////////////////////////////////////////////////////////////////////
@@ -573,5 +730,6 @@ int main()
 
     // start core 0
     pt_add_thread(protothread_serial);
+    // pt_add_thread(protothread_button);
     pt_schedule_start;
 }
