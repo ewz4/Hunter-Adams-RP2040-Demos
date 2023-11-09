@@ -86,20 +86,20 @@ volatile int counter_0 = 0;
 
 // Controller Parameters
 fix15 angle_reference = 0;
-fix15 error ;
+fix15 error;
 fix15 last_error = 0;
-fix15 proportional ;
-fix15 old_integral ;
-fix15 integral ;
-fix15 integral_part ;
+fix15 proportional;
+fix15 old_integral;
+fix15 integral;
+fix15 integral_part;
 fix15 integral_proportion = float2fix15(0.98);
-fix15 derivative ;
+fix15 derivative;
 fix15 integral_wind_up = int2fix15(16000); // 15.16 one 15 is a sign flip
 fix15 kp = int2fix15(150);
 fix15 ki = float2fix15(0.3);
 fix15 kd = int2fix15(16000);
 volatile int controller = 4;
-fix15 error_array[5] = {0,0,0,0,0};
+fix15 error_array[5] = {0, 0, 0, 0, 0};
 
 // Button
 #define BUTTON 10
@@ -128,59 +128,34 @@ void on_pwm_wrap()
     complementary_angle = multfix15(complementary_angle + gyro_angle_delta, zeroopt999) + multfix15(accel_angle, zeroopt001);
 
     // Controller Calculation
-    
-    if (controller == 0)
-    {
-        // Do nothing
-    }
-    else
-    {
-        // last_error = error ;
-        error = angle_reference - complementary_angle ;
 
+    if (controller != 0)
+    {
+        error = angle_reference - complementary_angle;
+
+        // Buffer error to give arm more time to move
         error_array[4] = error_array[3];
         error_array[3] = error_array[2];
         error_array[2] = error_array[1];
         error_array[1] = error_array[0];
         error_array[0] = error;
-        
 
         // Calculate controller values
         proportional = multfix15(kp, error);
 
-        // old_integral = integral;
         integral += error;
 
+        // Cap integral value to avoid overflow
         if (integral > integral_wind_up)
         {
-            integral = integral_wind_up; 
-            //integral = divfix(integral_part,ki);
+            integral = integral_wind_up;
         }
         else if (integral < -integral_wind_up)
         {
             integral = -integral_wind_up;
-            // integral = divfix(integral_part,ki);
         }
-        
-        // // Avoid integral wind up
-        // if ((error < 0) != (last_error < 0))
-        // {
-        //     // integral = multfix15(integral, integral_proportion);
-        //     integral -= error;
-        // }
 
-        integral_part = multfix15(integral,ki);
-        
-        // if (integral_part > integral_wind_up)
-        // {
-        //     integral_part = integral_wind_up; 
-        //     //integral = divfix(integral_part,ki);
-        // }
-        // else if (integral_part < -integral_wind_up)
-        // {
-        //     integral_part = -integral_wind_up;
-        //     // integral = divfix(integral_part,ki);
-        // }
+        integral_part = multfix15(integral, ki);
 
         derivative = multfix15(kd, (error_array[0] - error_array[4]));
 
@@ -204,10 +179,13 @@ void on_pwm_wrap()
             // PID controller
             control = fix2int15(proportional + derivative + integral_part);
         }
-        if (control > 5000) control = 5000;
-        else if (control < 0) control = 0;
+
+        // Cap duty cycle
+        if (control > 5000)
+            control = 5000;
+        else if (control < 0)
+            control = 0;
     }
-    
 
     // Update duty cycle
     if (control != old_control)
@@ -276,8 +254,10 @@ static PT_THREAD(protothread_vga(struct pt *pt))
     {
         // Wait on semaphore
         PT_SEM_WAIT(pt, &vga_semaphore);
+
         // Increment drawspeed controller
         throttle += 1;
+
         // If the controller has exceeded a threshold, draw
         if (throttle >= threshold)
         {
@@ -293,9 +273,9 @@ static PT_THREAD(protothread_vga(struct pt *pt))
             drawPixel(xcoord, 430 - (int)((float)(fix2int15(complementary_angle)) * 150 / 180), GREEN);
 
             // Plot Duty Cycle
-            drawPixel(xcoord, 155 - (int)((float)(fix2int15(proportional))*75 / 5000), WHITE);
-            drawPixel(xcoord, 155 - (int)((float)(fix2int15(derivative))*75 / 5000), RED);
-            drawPixel(xcoord, 155 - (int)((float)(fix2int15(integral_part))*75 / 5000), CYAN);
+            drawPixel(xcoord, 155 - (int)((float)(fix2int15(proportional)) * 75 / 5000), WHITE);
+            drawPixel(xcoord, 155 - (int)((float)(fix2int15(derivative)) * 75 / 5000), RED);
+            drawPixel(xcoord, 155 - (int)((float)(fix2int15(integral_part)) * 75 / 5000), CYAN);
             drawPixel(xcoord, 155 - (int)((float)(control)*75 / 5000), GREEN);
 
             if (counter_0 > 30)
@@ -389,8 +369,7 @@ static PT_THREAD(protothread_vga(struct pt *pt))
             }
         }
 
-        // bool button_read = gpio_get(BUTTON);
-        // printf("BUTTON: %d\n", button_read);
+        // If button is pressed, set times for angle shifts
         if (!gpio_get(BUTTON))
         {
             angle_reference = 0;
@@ -400,17 +379,24 @@ static PT_THREAD(protothread_vga(struct pt *pt))
             t3 = t2 + 5000000;
         }
 
+        // If running the automated angle change sequence
         if (gpio_get(BUTTON) && pressed)
         {
             uint32_t time = time_us_32();
             if (time < t1)
             {
                 angle_reference = int2fix15(90);
-            } else if (time < t2) {
+            }
+            else if (time < t2)
+            {
                 angle_reference = int2fix15(120);
-            } else if (time < t3) {
+            }
+            else if (time < t3)
+            {
                 angle_reference = int2fix15(60);
-            } else {
+            }
+            else
+            {
                 angle_reference = int2fix15(90);
                 pressed = false;
             }
@@ -420,7 +406,7 @@ static PT_THREAD(protothread_vga(struct pt *pt))
     PT_END(pt);
 }
 
-// User input thread. User can change draw speed
+// Serial input thread. User can change draw speed
 static PT_THREAD(protothread_serial(struct pt *pt))
 {
     PT_BEGIN(pt);
@@ -479,12 +465,9 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         }
         else if (strcmp(cmd, "dutycycle") == 0)
         {
-            // printf("HELLOOOOO???");
             if (arg1 != NULL)
             {
-                // printf("?????????");
                 control = atoi(arg1);
-                // printf("control = %d\n", control);
             }
         }
         else if (strcmp(cmd, "desiredangle") == 0)
@@ -531,11 +514,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             if (arg1 != NULL)
             {
                 ki = float2fix15(atof(arg1));
-                // if (ki > 1) {
-                //     integral_wind_up = divfix(float2fix15(5000),ki);
-                // } else {
-                //     integral_wind_up = int2fix15(5000);
-                // }
             }
         }
         else if (strcmp(cmd, "kd") == 0)
@@ -544,7 +522,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 kd = float2fix15(atof(arg1));
             }
-        } 
+        }
         else if (strcmp(cmd, "integralwindup") == 0)
         {
             if (arg1 != NULL)
@@ -557,50 +535,13 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             controller = 0;
             control = 0;
         }
-        else {
+        else
+        {
             printf("Huh?\n\r");
         }
     }
     PT_END(pt);
 }
-
-// This thread runs on core 0
-// static PT_THREAD (protothread_button(struct pt *pt))
-// {
-//     // Indicate thread beginning
-//     PT_BEGIN(pt) ;
-
-//     while(1) {
-
-//         if (gpio_get(BUTTON))
-//         {
-//             pressed = true;
-//             t1 = time_us_32() + 5000000;
-//             t2 = t1 + 5000000;
-//             t3 = t2 + 5000000;
-//         }
-
-//         if (pressed)
-//         {
-//             uint32_t time = time_us_32();
-//             if (time < t1)
-//             {
-//                 angle_reference = int2fix15(90);
-//             } else if (time < t2) {
-//                 angle_reference = int2fix15(120);
-//             } else if (time < t3) {
-//                 angle_reference = int2fix15(60);
-//             } else {
-//                 angle_reference = 0;
-//                 pressed = false;
-//             }
-//         }
-
-//         PT_YIELD_usec(30000) ;
-//     }
-//     // Indicate thread end
-//     PT_END(pt) ;
-// }
 
 // Entry point for core 1
 void core1_entry()

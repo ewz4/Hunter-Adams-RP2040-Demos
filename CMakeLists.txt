@@ -23,7 +23,8 @@ pico_sdk_init()
 # add_subdirectory(Networking)
 # add_subdirectory(PWM)
 # add_subdirectory(Lab_2)
-add_subdirectory(Lab_3)
+# add_subdirectory(Lab_3)
+add_subdirectory(Final_Project)
 
 add_compile_options(-Wall
         -Wno-format          # int != int32_t as far as the compiler is concerned because gcc has int32_t as long int
