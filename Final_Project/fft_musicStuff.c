@@ -115,20 +115,80 @@ struct note_mag_freq_mood_array // Struct that keeps mag and frequency of notes
 struct note_mag_freq_array current_loudest_3_notes[3] ;// Take top 3 notes of current sample mag and freq
 struct note_mag_freq_mood_array past_10_notes[10] ; // Store past 10 high notes
 
+int solve_for_cents(fix15 a, fix15 b) {
+    float freq_ratio ;
+    float log2 ;
+    int cents ;
+    freq_ratio = fix2float15(divfix(b, a));
+    log2 = log10(freq_ratio) / log10(2);
+    cents = (int)(12 * log2);
+
+    return cents;
+}
+
+    
+int identify_music_mood(float cents) {
+    //// Cents to intervals and moods stuff ////
+    int mood ;
+    while (cents > 12)
+    {
+        cents -= 12; 
+    }
+    
+    if (cents == 0 || cents == 2 || cents == 4 || cents == 5 || cents == 7 || cents == 9 || cents == 12) 
+    {
+        mood = 0; // 0 = major, 1 = minor, 2 = dissonant
+    }
+    else if (cents == 3 || cents == 8 || cents == 10)
+    {
+        mood = 1;
+    }
+    else if (cents == 1 || cents == 6 || cents == 11)
+    {
+        mood = 2;
+    }
+    return mood;
+    ////////////////////////////////////////////
+}
+
+int mode(int a[],int n) {
+   int maxValue = 0, maxCount = 0, i, j;
+
+   for (i = 0; i < n; ++i) {
+      int count = 0;
+      
+      for (j = 0; j < n; ++j) {
+         if (a[j] == a[i])
+         ++count;
+      }
+      
+      if (count > maxCount) {
+         maxCount = count;
+         maxValue = a[i];
+      }
+   }
+
+   return maxValue;
+}
 
 // Identifies the mood of the current note(s)
 // Identifies the overall mood based on previous 10 notes
-void identify_music_mood() {
+void music_stuff() {
 
     fix15 percentage_high_note_2 ;
     fix15 percentage_high_note_3 ;
-    float freq_ratio ;
-    float log2 ;
     int cents_with_prev_note ;
-    int cents ;
     fix15 top_note = 0;
     fix15 middle_note = 0;
     fix15 bottom_note = 0;
+    int curr_mood ;
+    int animate_mood ;
+    int interval ;
+    int interval_low ;
+    int interval_high ;
+    int animate_mood_1 ;
+    int animate_mood_2 ;
+    int overall_mood ;
 
     percentage_high_note_2 = divfix(current_loudest_3_notes[1].mag - current_loudest_3_notes[0].mag, current_loudest_3_notes[0].mag);
     percentage_high_note_3 = divfix(current_loudest_3_notes[2].mag - current_loudest_3_notes[0].mag, current_loudest_3_notes[0].mag);
@@ -170,53 +230,48 @@ void identify_music_mood() {
             else if (current_loudest_3_notes[m].freq > middle_note) middle_note = current_loudest_3_notes[m].freq;
             else bottom_note = current_loudest_3_notes[m].freq;
         }
-    }
+    } 
     
-    freq_ratio = fix2float15(divfix(top_note, past_10_notes[9]));
-    log2 = log10(freq_ratio) / log10(2);
-    cents_with_prev_note = (int)(12 * log2);
+    cents_with_prev_note = solve_for_cents(past_10_notes[9]), top_note)
 
-    // Cents to intervals and moods stuff //
-    cents = cents_with_prev_note;
-    while (cents > 12)
-    {
-        cents -= 12; 
-    }
-    
-    if (cents == 0 || cents == 2 || cents == 4 || cents == 5 || cents == 7 || cents == 9 || cents == 12) 
-    {
-        curr_mood = 0; // 0 = major, 1 = minor, 2 = dissonant
-    }
-    else if (cents == 3 || cents == 8 || cents == 10)
-    {
-        curr_mood = 1;
-    }
-    else if (cents == 1 || cents == 6 || cents == 11)
-    {
-        curr_mood = 2;
-    }
-    ///////////////////////////////////////////
+    curr_mood = identify_music_mood(cents_with_prev_note);
 
     if (bottom_note == 0 && middle_note == 0)
     {
         // One note
-        
+        animate_mood = curr_mood;
     }
     else if (bottom_note == 0)
     {
         // Two notes
-
+        interval = solve_for_cents(middle_note, top_note);
+        animate_mood = identify_music_mood(interval);
     }
     else
     {
         // Three notes
-
+        interval_low = solve_for_cents(bottom_note, middle_note);
+        interval_high = solve_for_cents(middle_note, top_note);
+        animate_mood_1 = identify_music_mood(interval_low);
+        animate_mood_2 = identify_music_mood(interval_high);
     }
 
     for (int i = 1; i < 10; i++) {
-        if (i == 9) past_10_notes[i] = top_note;
-        else past_10_notes[i] = past_10_notes[i+1];
+        if (i == 9)
+        {
+             past_10_notes[i].freq = top_note;
+             past_10_notes[i].mood = curr_mood;
+             
+        }
+        else 
+        {
+            past_10_notes[i].freq = past_10_notes[i+1].freq;
+            past_10_notes[i].mood = past_10_notes[i+1].mood;
+        }
     }
+
+    overall_mood = mode(past_10_notes.mood, 10);
+}
 
     
 }
