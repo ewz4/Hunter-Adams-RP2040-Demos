@@ -196,6 +196,9 @@ void music_stuff() {
     if (abs(percentage_high_note_2) > float2fix15(0.75) && abs(percentage_high_note_3) > float2fix15(0.75)) {
         // Only loudest note
         top_note = current_loudest_3_notes[0].freq;
+        cents_with_prev_note = solve_for_cents(past_10_notes[9], top_note);
+        curr_mood = identify_music_mood(cents_with_prev_note);
+        animate_mood = curr_mood;
     }
     else if (abs(percentage_high_note_2) > float2fix15(0.75)){
         // Only notes 0 and 2
@@ -209,6 +212,8 @@ void music_stuff() {
             top_note = current_loudest_3_notes[2].freq;
             bottom_note = current_loudest_3_notes[0].freq; 
         }
+        interval = solve_for_cents(bottom_note, top_note);
+        animate_mood = identify_music_mood(interval);
     }
     else if (abs(percentage_high_note_3) > float2fix15(0.75)){
         // Only notes 0 and 1
@@ -222,6 +227,8 @@ void music_stuff() {
             top_note = current_loudest_3_notes[1].freq;
             bottom_note = current_loudest_3_notes[0].freq; 
         }
+        interval = solve_for_cents(bottom_note, top_note);
+        animate_mood = identify_music_mood(interval);
     }
     else {
         // All 3 notes
@@ -230,38 +237,23 @@ void music_stuff() {
             else if (current_loudest_3_notes[m].freq > middle_note) middle_note = current_loudest_3_notes[m].freq;
             else bottom_note = current_loudest_3_notes[m].freq;
         }
-    } 
-    
-    cents_with_prev_note = solve_for_cents(past_10_notes[9]), top_note)
-
-    curr_mood = identify_music_mood(cents_with_prev_note);
-
-    if (bottom_note == 0 && middle_note == 0)
-    {
-        // One note
-        animate_mood = curr_mood;
-    }
-    else if (bottom_note == 0)
-    {
-        // Two notes
-        interval = solve_for_cents(middle_note, top_note);
-        animate_mood = identify_music_mood(interval);
-    }
-    else
-    {
-        // Three notes
         interval_low = solve_for_cents(bottom_note, middle_note);
         interval_high = solve_for_cents(middle_note, top_note);
         animate_mood_1 = identify_music_mood(interval_low);
         animate_mood_2 = identify_music_mood(interval_high);
+    } 
+    
+    if (bottom_note == 0 && middle_note == 0);
+    else {
+        cents_with_prev_note = solve_for_cents(past_10_notes[9], top_note);
+        curr_mood = identify_music_mood(cents_with_prev_note);
     }
-
+    
     for (int i = 1; i < 10; i++) {
         if (i == 9)
         {
              past_10_notes[i].freq = top_note;
              past_10_notes[i].mood = curr_mood;
-             
         }
         else 
         {
@@ -269,11 +261,7 @@ void music_stuff() {
             past_10_notes[i].mood = past_10_notes[i+1].mood;
         }
     }
-
     overall_mood = mode(past_10_notes.mood, 10);
-}
-
-    
 }
 
 
