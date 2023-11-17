@@ -209,20 +209,20 @@ void spawn(fix15 *x, fix15 *y, fix15 *vx, fix15 *vy)
 // Boid_algo initial calculation for ith boid
 void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
 {
-    struct boid curr_flock *;
-    struct boid predator_flock *;
+    struct boid *curr_flock;
+    struct boid *predator_flock;
 
-    if (flock_type == 1)
+    if (flock_type == 0)
     {
         curr_flock = rock_flock;
         predator_flock = paper_flock;
     }
-    else if (flock_type == 2)
+    else if (flock_type == 1)
     {
         curr_flock = paper_flock;
         predator_flock = scissor_flock;
     }
-    else if (flock_type == 3)
+    else if (flock_type == 2)
     {
         curr_flock = scissor_flock;
         predator_flock = rock_flock;
@@ -254,7 +254,7 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
 
                 // If so, subtract dx and dy to close_dx and close_dy for other boid
                 curr_flock[j].close_dx -= dx_i;
-                curr_flock[j].close_du -= dy_i;
+                curr_flock[j].close_dy -= dy_i;
             }
             else // Boid is in the visual range
             {
@@ -271,8 +271,8 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
                 curr_flock[j].yvel_avg += curr_flock[i].vy;
 
                 // Increment number of boids within visual range to both the current and other boid
-                curr_flock[i].neighboring_boids_0++;
-                curr_flock[j].neighboring_boids_0++;
+                curr_flock[i].neighboring_boids++;
+                curr_flock[j].neighboring_boids++;
             }
         }
     }
@@ -284,13 +284,13 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
         dy_p = curr_flock[i].y - predator_flock[k].y;
 
         // Are both those differences less than the predatory range?
-        if (absfix15(dx_p_0) < predatory_flock_range && absfix15(dx_p_0) < predatory_flock_range)
+        if (absfix15(dx_p) < predatory_flock_range && absfix15(dx_p) < predatory_flock_range)
         {
             curr_flock[i].predator_flock_dx += curr_flock[i].x - predator_flock[k].x;
             curr_flock[i].predator_flock_dy += curr_flock[i].y - predator_flock[k].y;
 
             // Increment the number of predators in the boid's predatory range
-            boids[i].num_flock_predators++;
+            curr_flock[i].num_flock_predators++;
         }
     }
 
@@ -299,17 +299,17 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
         if (predators[k].alive_counter > 0)
         {
             // Compute the differences in x and y coordinates
-            dx_p = boids[i].x - predators[k].x;
-            dy_p = boids[i].y - predators[k].y;
+            dx_p = curr_flock[i].x - predators[k].x;
+            dy_p = curr_flock[i].y - predators[k].y;
 
             // Are both those differences less than the predatory range?
-            if (absfix15(dx_p_0) < predatory_range && absfix15(dx_p_0) < predatory_range)
+            if (absfix15(dx_p) < predatory_range && absfix15(dx_p) < predatory_range)
             {
-                boids[i].predator_dx += boids[i].x - predators[k].x;
-                boids[i].predator_dy += boids[i].y - predators[k].y;
+                curr_flock[i].predator_dx += curr_flock[i].x - predators[k].x;
+                curr_flock[i].predator_dy += curr_flock[i].y - predators[k].y;
 
                 // Increment the number of predators in the boid's predatory range
-                boids[i].num_predators++;
+                curr_flock[i].num_predators++;
             }
         }
     }
@@ -321,8 +321,8 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
 // Update the x and y positions of each boid
 void boid_algo_update(uint16_t i_update, uint8_t flock_type)
 {
-    struct boid curr_flock *;
-    struct boid predator_flock *;
+    struct boid *curr_flock;
+    struct boid *predator_flock;
 
     if (flock_type == 1)
     {
@@ -405,7 +405,7 @@ void boid_algo_update(uint16_t i_update, uint8_t flock_type)
         }
         if (curr_flock[i_update].predator_flock_dx < 0)
         {
-            curr_flock[i_update].vx = boids[i_update].vx - predator_flock_turnfactor;
+            curr_flock[i_update].vx = curr_flock[i_update].vx - predator_flock_turnfactor;
         }
     }
 
@@ -426,37 +426,37 @@ void boid_algo_update(uint16_t i_update, uint8_t flock_type)
         }
         if (curr_flock[i_update].predator_dx < 0)
         {
-            curr_flock[i_update].vx = boids[i_update].vx - predator_turnfactor;
+            curr_flock[i_update].vx = curr_flock[i_update].vx - predator_turnfactor;
         }
     }
 
     // Calculate the boid's speed
     // Calculated using the alpha beta max algorithm
     // speed = 1*v_max + 1/4 * v_min --> shift by 2 instead of multiply 0.25
-    if (absfix15(boids[i_update].vx) < absfix15(boids[i_update].vy))
+    if (absfix15(curr_flock[i_update].vx) < absfix15(curr_flock[i_update].vy))
     {
 
-        speed = absfix15(boids[i_update].vy) + (absfix15(boids[i_update].vx) >> 2);
+        speed = absfix15(curr_flock[i_update].vy) + (absfix15(curr_flock[i_update].vx) >> 2);
     }
     else
     {
-        speed = absfix15(boids[i_update].vx) + (absfix15(boids[i_update].vy) >> 2);
+        speed = absfix15(curr_flock[i_update].vx) + (absfix15(curr_flock[i_update].vy) >> 2);
     }
 
     if (speed > maxspeed)
     {
-        boids[i_update].vx = boids[i_update].vx - (boids[i_update].vx >> 2);
-        boids[i_update].vy = boids[i_update].vy - (boids[i_update].vy >> 2);
+        curr_flock[i_update].vx = curr_flock[i_update].vx - (curr_flock[i_update].vx >> 2);
+        curr_flock[i_update].vy = curr_flock[i_update].vy - (curr_flock[i_update].vy >> 2);
     }
     if (speed < minspeed)
     {
-        boids[i_update].vx = boids[i_update].vx + (boids[i_update].vx >> 2);
-        boids[i_update].vy = boids[i_update].vy + (boids[i_update].vy >> 2);
+        curr_flock[i_update].vx = curr_flock[i_update].vx + (curr_flock[i_update].vx >> 2);
+        curr_flock[i_update].vy = curr_flock[i_update].vy + (curr_flock[i_update].vy >> 2);
     }
 
     // Update position using velocity
-    boids[i_update].x = boids[i_update].x + boids[i_update].vx;
-    boids[i_update].y = boids[i_update].y + boids[i_update].vy;
+    curr_flock[i_update].x = curr_flock[i_update].x + curr_flock[i_update].vx;
+    curr_flock[i_update].y = curr_flock[i_update].y + curr_flock[i_update].vy;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -533,6 +533,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
 
     // announce the threader version
     sprintf(pt_serial_out_buffer, "Protothreads RP2040 v1.0\n\r");
+    // printf("Yoooooo\n\r");
     // non-blocking write
     serial_write;
 
@@ -558,9 +559,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         if (strcmp(cmd, "help") == 0)
         {
             // List commands
-            printf("draw line\n\r");
-            printf("draw box\n\r");
-            printf("draw none\n\r");
             printf("turnfactor\n\r");
             printf("visualrange\n\r");
             printf("protectedrange\n\r");
@@ -569,6 +567,13 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             printf("matchingfactor\n\r");
             printf("numberBoids\n\r");
             printf("numberPredators\n\r");
+            printf("numberBoids\n\r");
+            printf("mood\n\r");
+            printf("splash\n\r");
+        }
+        else if (strcmp(cmd,"from") == 0)
+        {
+            mood = (uint8_t)2;
         }
         // For each parameter, the serial monitor reads the parameter value and alters it
         else if (strcmp(cmd, "turnfactor") == 0)
@@ -620,7 +625,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 for (uint8_t m = 0; m < N_flocks; m++)
                 {
-                    struct boid curr_flock *;
+                    struct boid *curr_flock;
                     if (m == 1)
                     {
                         curr_flock = rock_flock;
@@ -636,13 +641,13 @@ static PT_THREAD(protothread_serial(struct pt *pt))
 
                     for (uint16_t i = 0; i < curr_N_boids; i++)
                     {
-                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 20 BLACK);
+                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 2, BLACK);
                     }
                 }
 
                 for (uint8_t l = 0; l < curr_N_predators; l++)
                 {
-                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 20, BLACK);
+                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, BLACK);
                 }
 
                 curr_N_boids = (uint16_t)(atoi(arg1));
@@ -651,7 +656,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 // Spawn boid flocks
                 for (uint8_t m = 0; m < N_flocks; m++)
                 {
-                    struct boid curr_flock *;
+                    struct boid *curr_flock;
                     if (m == 1)
                     {
                         curr_flock = rock_flock;
@@ -684,7 +689,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 for (uint8_t m = 0; m < N_flocks; m++)
                 {
-                    struct boid curr_flock *;
+                    struct boid *curr_flock;
                     if (m == 1)
                     {
                         curr_flock = rock_flock;
@@ -700,13 +705,13 @@ static PT_THREAD(protothread_serial(struct pt *pt))
 
                     for (uint16_t i = 0; i < curr_N_boids; i++)
                     {
-                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 20 BLACK);
+                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 2, BLACK);
                     }
                 }
 
                 for (uint8_t l = 0; l < curr_N_predators; l++)
                 {
-                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 20, BLACK);
+                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, BLACK);
                 }
 
                 curr_N_predators = (uint16_t)(atoi(arg1));
@@ -714,7 +719,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 // Spawn boid flocks
                 for (uint8_t m = 0; m < N_flocks; m++)
                 {
-                    struct boid curr_flock *;
+                    struct boid *curr_flock;
                     if (m == 1)
                     {
                         curr_flock = rock_flock;
@@ -740,17 +745,23 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 }
             }
         }
-        else if ((strcmp(cmd, "mood") == 0))
+        else if (strcmp(cmd, "mood") == 0)
         {
-            mood = (uint8_t)(atoi(arg1));
-        }
-        else if ((strcmp(cmd, "splash") == 0))
-        {
-            predators[predator_spawn_index].alive_counter = 1;
-            predator_spawn_index++;
-            if (predator_spawn_index > 4)
+            if (arg1 != NULL)
             {
-                predator_spawn_index = 0;
+                mood = (uint8_t)(atoi(arg1));
+            }
+        }
+        else if (strcmp(cmd, "splash") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                predators[predator_spawn_index].alive_counter = 1;
+                predator_spawn_index++;
+                if (predator_spawn_index > 4)
+                {
+                    predator_spawn_index = 0;
+                }
             }
         }
         else
@@ -767,7 +778,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 {
     // Mark beginning of thread
     PT_BEGIN(pt);
-
+    // printf("HERE\n");
     // Variables for maintaining frame rate
     static int begin_time;
     static int spare_time;
@@ -781,22 +792,24 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     // Spawn boid flocks
     for (uint8_t m = 0; m < N_flocks; m++)
     {
-        struct boid curr_flock *;
-        if (m == 1)
+        printf("%d\n", m);
+        struct boid *curr_flock;
+        if (m == 0)
         {
             curr_flock = rock_flock;
         }
-        else if (m == 2)
+        else if (m == 1)
         {
             curr_flock = paper_flock;
         }
-        else if (m == 3)
+        else if (m == 2)
         {
             curr_flock = scissor_flock;
         }
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
+            // printf("%d\n", current_boid);
             spawn(&curr_flock[current_boid].x, &curr_flock[current_boid].y, &curr_flock[current_boid].vx, &curr_flock[current_boid].vy);
         }
     }
@@ -807,11 +820,13 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
     }
 
+    // printf("HERE\n");
     while (1)
     {
         // Measure time at start of thread
         begin_time = time_us_32();
-        ;
+
+        // printf("THREADING\n");
 
         for (uint8_t m = 0; m < N_flocks; m++)
         {
@@ -821,6 +836,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 boid_algo_init_calc_core(current_boid, m);
             }
         }
+
+        // printf("THREADING 2\n");
 
         char color = BLACK;
         // Calculate mood
@@ -837,38 +854,40 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             color = RED;
         }
 
+        // printf("THREADING 3\n");
+
         for (uint8_t m = 0; m < N_flocks; m++)
         {
             for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
             {
-                struct boid curr_flock *;
-                if (m == 1)
+                struct boid *curr_flock;
+                if (m == 0)
                 {
                     curr_flock = rock_flock;
                 }
-                else if (m == 2)
+                else if (m == 1)
                 {
                     curr_flock = paper_flock;
                 }
-                else if (m == 3)
+                else if (m == 2)
                 {
                     curr_flock = scissor_flock;
                 }
 
                 // Erase boid
-                fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 20, BLACK);
+                fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLACK);
 
                 // Update boid state
-                boid_algo_update(current_boid);
+                boid_algo_update(current_boid, mood);
 
                 // Draw the boid at its new position
                 if (curr_flock[current_boid].num_predators > 0)
                 {
-                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 20, WHITE);
+                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, WHITE);
                 }
                 else
                 {
-                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), color);
+                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, color);
                 }
 
                 // Set all values needed for boid calculate back to 0
@@ -890,19 +909,23 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             }
         }
 
+        // printf("THREADING 4\n");
+
         for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
         {
             // Erase predator
-            fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 20, BLACK);
+            fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
             // Update predator's position and velocity
             predator_algo(current_predator);
 
             if (predators[current_predator].alive_counter > 0)
             {
                 // Draw the predator at its new position
-                fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 20, WHITE)
+                fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, WHITE);
             }
         }
+
+        // printf("THREADING 5\n");
 
         if (counter > 30)
         {
@@ -966,8 +989,8 @@ int main()
     //   gpio_put(LED, 0);
 
     // start core 1
-    multicore_reset_core1();
-    multicore_launch_core1(&core1_main);
+    // multicore_reset_core1();
+    // multicore_launch_core1(&core1_main);
 
     // add threads
     pt_add_thread(protothread_serial);
