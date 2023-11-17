@@ -32,6 +32,7 @@
 #include <math.h>
 // Include Pico libraries
 #include "pico/stdlib.h"
+#include "pico/divider.h"
 #include "pico/multicore.h"
 // Include hardware libraries
 #include "hardware/pio.h"
@@ -47,6 +48,7 @@
 // === the fixed point macros (16.15) ========================================
 typedef signed int fix15 ;
 #define multfix15(a,b) ((fix15)((((signed long long)(a))*((signed long long)(b)))>>15))
+#define divfix(a, b) (fix15)(div_s64s64((((signed long long)(a)) << 15), ((signed long long)(b))))
 #define float2fix15(a) ((fix15)((a)*32768.0)) // 2^15
 #define fix2float15(a) ((float)(a)/32768.0)
 #define absfix15(a) abs(a) 
@@ -99,7 +101,7 @@ uint8_t * sample_address_pointer = &sample_array[0] ;
 
 /////////////////////////// Music Identification Code ////////////////////////////////
 
-
+// Structure arrays
 struct note_mag_freq_array // Struct that keeps mag and frequency of notes
 {
   fix15 mag;
@@ -109,11 +111,26 @@ struct note_mag_freq_array // Struct that keeps mag and frequency of notes
 struct note_mag_freq_mood_array // Struct that keeps mag and frequency of notes
 {
   fix15 freq;
-  int mood;
+  float mood;
 };
 
 struct note_mag_freq_array current_loudest_3_notes[3] ;// Take top 3 notes of current sample mag and freq
 struct note_mag_freq_mood_array past_10_notes[10] ; // Store past 10 high notes
+
+// Global variables
+volatile float animate_mood ; // Range from 0-2; 0 == major, 1 == minor, 2 == dissonant
+volatile float overall_mood ;
+bool calculate_new_note = false;
+fix15 percent_diff = 0;
+fix15 percent_diff_threshold = float2fix15(0.01) ;
+fix15 old_note_mag = float2fix15(0.001);
+fix15 freq_calc = float2fix15(Fs/NUM_SAMPLES) ;
+fix15 percentage_high_note_diff = float2fix15(0.25) ;
+fix15 mag_threshold = float2fix15(0.5);
+
+
+///////////////////////////////////////////////////////////////////////////////////
+///////////////////// Cents to intervals and moods functions //////////////////////
 
 int solve_for_cents(fix15 a, fix15 b) {
     float freq_ratio ;
@@ -126,53 +143,29 @@ int solve_for_cents(fix15 a, fix15 b) {
     return cents;
 }
 
-    
-int identify_music_mood(float cents) {
-    //// Cents to intervals and moods stuff ////
-    int mood ;
+float identify_music_mood(int cents) {
+    float mood ;
     while (cents > 12)
     {
         cents -= 12; 
     }
     
-    if (cents == 0 || cents == 2 || cents == 4 || cents == 5 || cents == 7 || cents == 9 || cents == 12) 
+    if (cents == 0 || cents == 4 || cents == 5 || cents == 7) 
     {
         mood = 0; // 0 = major, 1 = minor, 2 = dissonant
     }
-    else if (cents == 3 || cents == 8 || cents == 10)
+    else if (cents == 3 || cents == 2 || cents == 8 || cents == 9 || cents == 12)
     {
         mood = 1;
     }
-    else if (cents == 1 || cents == 6 || cents == 11)
+    else if (cents == 1 || cents == 6 || cents == 10 || cents == 11)
     {
         mood = 2;
     }
     return mood;
-    ////////////////////////////////////////////
+    
 }
 
-int mode(int a[],int n) {
-   int maxValue = 0, maxCount = 0, i, j;
-
-   for (i = 0; i < n; ++i) {
-      int count = 0;
-      
-      for (j = 0; j < n; ++j) {
-         if (a[j] == a[i])
-         ++count;
-      }
-      
-      if (count > maxCount) {
-         maxCount = count;
-         maxValue = a[i];
-      }
-   }
-
-   return maxValue;
-}
-
-// Identifies the mood of the current note(s)
-// Identifies the overall mood based on previous 10 notes
 void music_stuff() {
 
     fix15 percentage_high_note_2 ;
@@ -181,26 +174,25 @@ void music_stuff() {
     fix15 top_note = 0;
     fix15 middle_note = 0;
     fix15 bottom_note = 0;
-    int curr_mood ;
-    int animate_mood ;
-    int interval ;
-    int interval_low ;
-    int interval_high ;
-    int animate_mood_1 ;
-    int animate_mood_2 ;
-    int overall_mood ;
+    float curr_mood ;
+    float interval ;
+    float interval_low ;
+    float interval_high ;
+    float animate_mood_1 ;
+    float animate_mood_2 ;
+    float sum_mood = 0;
 
     percentage_high_note_2 = divfix(current_loudest_3_notes[1].mag - current_loudest_3_notes[0].mag, current_loudest_3_notes[0].mag);
     percentage_high_note_3 = divfix(current_loudest_3_notes[2].mag - current_loudest_3_notes[0].mag, current_loudest_3_notes[0].mag);
 
-    if (abs(percentage_high_note_2) > float2fix15(0.75) && abs(percentage_high_note_3) > float2fix15(0.75)) {
+    if (abs(percentage_high_note_2) > percentage_high_note_diff && abs(percentage_high_note_3) > percentage_high_note_diff) {
         // Only loudest note
         top_note = current_loudest_3_notes[0].freq;
-        cents_with_prev_note = solve_for_cents(past_10_notes[9], top_note);
+        cents_with_prev_note = solve_for_cents(past_10_notes[9].freq, top_note);
         curr_mood = identify_music_mood(cents_with_prev_note);
         animate_mood = curr_mood;
     }
-    else if (abs(percentage_high_note_2) > float2fix15(0.75)){
+    else if (abs(percentage_high_note_2) > percentage_high_note_diff){
         // Only notes 0 and 2
         if (current_loudest_3_notes[0].freq > current_loudest_3_notes[2].freq)
         {
@@ -215,7 +207,7 @@ void music_stuff() {
         interval = solve_for_cents(bottom_note, top_note);
         animate_mood = identify_music_mood(interval);
     }
-    else if (abs(percentage_high_note_3) > float2fix15(0.75)){
+    else if (abs(percentage_high_note_3) > percentage_high_note_diff){
         // Only notes 0 and 1
         if (current_loudest_3_notes[0].freq > current_loudest_3_notes[1].freq)
         {
@@ -241,27 +233,32 @@ void music_stuff() {
         interval_high = solve_for_cents(middle_note, top_note);
         animate_mood_1 = identify_music_mood(interval_low);
         animate_mood_2 = identify_music_mood(interval_high);
+        animate_mood = (animate_mood_1 + animate_mood_2)/2;
     } 
     
-    if (bottom_note == 0 && middle_note == 0);
+    if (bottom_note != 0 && middle_note != 0);
     else {
-        cents_with_prev_note = solve_for_cents(past_10_notes[9], top_note);
+        cents_with_prev_note = solve_for_cents(past_10_notes[9].freq, top_note);
         curr_mood = identify_music_mood(cents_with_prev_note);
     }
-    
-    for (int i = 1; i < 10; i++) {
+
+    for (int i = 0; i < 10; i++) {
         if (i == 9)
         {
              past_10_notes[i].freq = top_note;
              past_10_notes[i].mood = curr_mood;
+             sum_mood += past_10_notes[i].mood;
         }
         else 
         {
             past_10_notes[i].freq = past_10_notes[i+1].freq;
             past_10_notes[i].mood = past_10_notes[i+1].mood;
+            sum_mood += past_10_notes[i].mood;
         }
     }
-    overall_mood = mode(past_10_notes.mood, 10);
+    printf("sum_mood = %f\n",sum_mood);
+    overall_mood = (float)(sum_mood/10);
+    
 }
 
 
@@ -376,18 +373,27 @@ static PT_THREAD (protothread_fft(struct pt *pt))
 
     // Write some text to VGA
     setTextColor(WHITE) ;
-    setCursor(65, 0) ;
-    setTextSize(1) ;
-    writeString("Raspberry Pi Pico") ;
-    setCursor(65, 10) ;
-    writeString("FFT demo") ;
-    setCursor(65, 20) ;
-    writeString("Hunter Adams") ;
-    setCursor(65, 30) ;
-    writeString("vha3@cornell.edu") ;
+    // setCursor(65, 0) ;
+    // setTextSize(1) ;
+    // writeString("Raspberry Pi Pico") ;
+    // setCursor(65, 10) ;
+    // writeString("FFT demo") ;
+    // setCursor(65, 20) ;
+    // writeString("Hunter Adams") ;
+    // setCursor(65, 30) ;
+    // writeString("vha3@cornell.edu") ;
     setCursor(250, 0) ;
-    setTextSize(2) ;
+    setTextSize(1) ;
     writeString("Max freqency:") ;
+    setCursor(250, 10) ;
+    setTextSize(1) ;
+    writeString("Magnitude:") ;
+    setCursor(250, 20) ;
+    setTextSize(1) ;
+    writeString("Animate Mood:") ;
+    setCursor(250, 30) ;
+    setTextSize(1) ;
+    writeString("Overall Mood:") ;
 
     // Will be used to write dynamic text to screen
     static char freqtext[40];
@@ -425,32 +431,63 @@ static PT_THREAD (protothread_fft(struct pt *pt))
             // Keep track of top 3
             if(fr[i] > max_fr && i>4) {
                 max_fr = fr[i] ;
+                // printf("mag = %d\n",fix2int15(max_fr));
                 max_fr_dex = i ;
-                current_loudest_3_notes[0].mag = max_fr;
-                current_loudest_3_notes[1].mag = current_loudest_3_notes[0].mag;
                 current_loudest_3_notes[2].mag = current_loudest_3_notes[1].mag;
+                current_loudest_3_notes[1].mag = current_loudest_3_notes[0].mag;
+                current_loudest_3_notes[0].mag = max_fr;
+                current_loudest_3_notes[2].freq = current_loudest_3_notes[1].freq;
+                current_loudest_3_notes[1].freq = current_loudest_3_notes[0].freq;
+                current_loudest_3_notes[0].freq = int2fix15(i);
+                percent_diff = divfix(max_fr - old_note_mag,old_note_mag); 
+                if (abs(percent_diff) > percent_diff_threshold && current_loudest_3_notes[0].mag > mag_threshold) {
+                    calculate_new_note = true;
+                    old_note_mag = current_loudest_3_notes[0].mag;
+                }
                 
             }
         }
-        current_loudest_3_notes[0].freq = current_loudest_3_notes[0].mag * (Fs/NUM_SAMPLES) ;
-        current_loudest_3_notes[1].freq = current_loudest_3_notes[1].mag * (Fs/NUM_SAMPLES) ;
-        current_loudest_3_notes[2].freq = current_loudest_3_notes[2].mag * (Fs/NUM_SAMPLES) ;
-        // // Compute max frequency in Hz
+        if (calculate_new_note)
+        {
+            current_loudest_3_notes[0].freq = multfix15(current_loudest_3_notes[0].freq,freq_calc);
+            current_loudest_3_notes[1].freq = multfix15(current_loudest_3_notes[1].freq,freq_calc);
+            current_loudest_3_notes[2].freq = multfix15(current_loudest_3_notes[2].freq,freq_calc) ;
+            calculate_new_note = false;
+            music_stuff();
+        }
+        
+        // Compute max frequency in Hz
         // max_freqency = max_fr_dex * (Fs/NUM_SAMPLES) ;
+        // // printf("mag = %d\n",fix2int15(max_fr));
+        // printf("frequency = %1.2f\n", max_freqency);
+        // printf("freq_calc = %d\n", (Fs/NUM_SAMPLES));
 
-        // // Display on VGA
-        // fillRect(250, 20, 176, 30, BLACK); // red box
-        // sprintf(freqtext, "%d", (int)max_freqency) ;
-        // setCursor(250, 20) ;
-        // setTextSize(2) ;
-        // writeString(freqtext) ;
 
-        // // Update the FFT display
-        // for (int i=5; i<(NUM_SAMPLES>>1); i++) {
-        //     drawVLine(59+i, 50, 429, BLACK);
-        //     height = fix2int15(multfix15(fr[i], int2fix15(36))) ;
-        //     drawVLine(59+i, 479-height, height, WHITE);
-        // }
+        // Display on VGA
+        fillRect(350, 0, 400, 40, BLACK); // red box
+        sprintf(freqtext, "%d", fix2int15(current_loudest_3_notes[0].freq)) ;
+        setCursor(350, 0) ;
+        setTextSize(1) ;
+        writeString(freqtext) ;
+        sprintf(freqtext, "%1.3f", fix2float15(current_loudest_3_notes[2].mag)) ;
+        setCursor(350, 10) ;
+        setTextSize(1) ;  
+        writeString(freqtext) ;
+        sprintf(freqtext, "%1.2f", animate_mood) ;
+        setCursor(350, 20) ;
+        setTextSize(1) ;
+        writeString(freqtext) ;
+        sprintf(freqtext, "%1.2f", overall_mood) ;
+        setCursor(350, 30) ;
+        setTextSize(1) ;
+        writeString(freqtext) ;
+
+        // Update the FFT display
+        for (int i=5; i<(NUM_SAMPLES>>1); i++) {
+            drawVLine(59+i, 50, 429, BLACK);
+            height = fix2int15(multfix15(fr[i], int2fix15(36))) ;
+            drawVLine(59+i, 479-height, height, WHITE);
+        }
 
     }
     PT_END(pt) ;
