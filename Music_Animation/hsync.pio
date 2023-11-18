@@ -56,7 +56,7 @@ static inline void hsync_program_init(PIO pio, uint sm, uint offset, uint pin) {
 
     // Set clock division (div by 5 for 25 MHz state machine)
     // Set to div by 10 for overclocking
-    sm_config_set_clkdiv(&c, 10) ;
+    sm_config_set_clkdiv(&c, 5) ;
 
     // Set this pin's GPIO function (connect PIO to the pad)
     pio_gpio_init(pio, pin);

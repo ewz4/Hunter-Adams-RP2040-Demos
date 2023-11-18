@@ -324,17 +324,17 @@ void boid_algo_update(uint16_t i_update, uint8_t flock_type)
     struct boid *curr_flock;
     struct boid *predator_flock;
 
-    if (flock_type == 1)
+    if (flock_type == 0)
     {
         curr_flock = rock_flock;
         predator_flock = paper_flock;
     }
-    else if (flock_type == 2)
+    else if (flock_type == 1)
     {
         curr_flock = paper_flock;
         predator_flock = scissor_flock;
     }
-    else if (flock_type == 3)
+    else if (flock_type == 2)
     {
         curr_flock = scissor_flock;
         predator_flock = rock_flock;
@@ -511,8 +511,17 @@ void predator_algo(uint8_t l)
     predators[l].y = predators[l].y + predators[l].vy;
 
     // Update the alive counter
-    predators[l].alive_counter++;
-    if (predators[l].alive_counter > 5)
+    // 0 means predator is not being drawn and not affecting flocks, and should not be incremented
+    // 1 - 100 means it is being drawn and affecting flocks
+    if (predators[l].alive_counter > 0)
+    {
+        predators[l].alive_counter++;
+    }
+    if (predators[l].alive_counter > 100)
+    {
+        predators[l].alive_counter = 0;
+    }
+    if (predators[l].alive_counter > 100)
     {
         predators[l].alive_counter = 0;
     }
@@ -533,7 +542,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
 
     // announce the threader version
     sprintf(pt_serial_out_buffer, "Protothreads RP2040 v1.0\n\r");
-    // printf("Yoooooo\n\r");
+
     // non-blocking write
     serial_write;
 
@@ -543,6 +552,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
     {
         // print prompt
         sprintf(pt_serial_out_buffer, "Enter Command> ");
+
         // spawn a thread to do the non-blocking write
         serial_write;
 
@@ -559,19 +569,20 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         if (strcmp(cmd, "help") == 0)
         {
             // List commands
-            printf("turnfactor\n\r");
-            printf("visualrange\n\r");
-            printf("protectedrange\n\r");
-            printf("centeringfactor\n\r");
-            printf("avoidfactor\n\r");
-            printf("matchingfactor\n\r");
-            printf("numberBoids\n\r");
-            printf("numberPredators\n\r");
-            printf("numberBoids\n\r");
-            printf("mood\n\r");
+            printf("turnfactor <float>\n\r");
+            printf("visualrange <int>\n\r");
+            printf("protectedrange <int>\n\r");
+            printf("centeringfactor <float>\n\r");
+            printf("avoidfactor <float>\n\r");
+            printf("matchingfactor <float>\n\r");
+            printf("numberBoids <int>\n\r");
+            printf("numberPredators <int>\n\r");
+            printf("numberBoids <int> 0\n\r");
+            printf("mood <int>\n\r");
             printf("splash\n\r");
+            printf("from\n\n");
         }
-        else if (strcmp(cmd,"from") == 0)
+        else if (strcmp(cmd, "from") == 0)
         {
             mood = (uint8_t)2;
         }
@@ -623,62 +634,35 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; i < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t i = 0; i < curr_N_boids; i++)
-                    {
-                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 2, BLACK);
-                    }
+                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
                 {
-                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, BLACK);
+                    fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
+                    predators[current_predator].alive_counter = 0;
                 }
 
                 curr_N_boids = (uint16_t)(atoi(arg1));
-                half_N_boids = curr_N_boids >> 1;
 
                 // Spawn boid flocks
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
-                    {
-                        spawn(&curr_flock[current_boid].x, &curr_flock[current_boid].y, &curr_flock[current_boid].vx, &curr_flock[current_boid].vy);
-                    }
+                    // All boid properties are zerod out from other thread
+                    spawn(&rock_flock[current_boid].x, &rock_flock[current_boid].y, &rock_flock[current_boid].vx, &rock_flock[current_boid].vy);
+                    spawn(&paper_flock[current_boid].x, &paper_flock[current_boid].y, &paper_flock[current_boid].vx, &paper_flock[current_boid].vy);
+                    spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &scissor_flock[current_boid].vy);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; l++)
                 {
-                    spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
+                    spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
+                    // Need to zero out alive counters
+                    predators[current_predator].alive_counter = 0;
                 }
             }
         }
@@ -687,61 +671,35 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; i < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t i = 0; i < curr_N_boids; i++)
-                    {
-                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 2, BLACK);
-                    }
+                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
                 {
-                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, BLACK);
+                    fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
                 }
 
                 curr_N_predators = (uint16_t)(atoi(arg1));
 
                 // Spawn boid flocks
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
-                    {
-                        spawn(&curr_flock[current_boid].x, &curr_flock[current_boid].y, &curr_flock[current_boid].vx, &curr_flock[current_boid].vy);
-                    }
+                    // All boid properties are zerod out from other thread
+                    spawn(&rock_flock[current_boid].x, &rock_flock[current_boid].y, &rock_flock[current_boid].vx, &rock_flock[current_boid].vy);
+                    spawn(&paper_flock[current_boid].x, &paper_flock[current_boid].y, &paper_flock[current_boid].vx, &paper_flock[current_boid].vy);
+                    spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &scissor_flock[current_boid].vy);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                // Spawn predators
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; l++)
                 {
-                    spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
+                    spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
+                    // Need to zero out alive counters
+                    predators[current_predator].alive_counter = 0;
                 }
             }
         }
@@ -758,7 +716,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 predators[predator_spawn_index].alive_counter = 1;
                 predator_spawn_index++;
-                if (predator_spawn_index > 4)
+                if (predator_spawn_index == curr_N_predators)
                 {
                     predator_spawn_index = 0;
                 }
@@ -878,7 +836,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLACK);
 
                 // Update boid state
-                boid_algo_update(current_boid, mood);
+                boid_algo_update(current_boid, m);
 
                 // Draw the boid at its new position
                 if (curr_flock[current_boid].num_predators > 0)
@@ -976,7 +934,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 // USE ONLY C-sdk library
 int main()
 {
-    set_sys_clock_khz(250000, true);
+    // set_sys_clock_khz(250000, true);
     // initialize stio
     stdio_init_all();
 

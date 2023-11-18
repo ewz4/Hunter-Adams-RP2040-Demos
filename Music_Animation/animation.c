@@ -105,9 +105,8 @@ struct predator
 
 // Initializing boids
 #define N_flocks 3
-#define N_boids 100          // Max number of boids per flock
-uint16_t curr_N_boids = 100; // Current number of boids
-uint16_t half_N_boids = 50;
+#define N_boids 100                 // Max number of boids per flock
+uint16_t curr_N_boids = 100;        // Current number of boids
 struct boid rock_flock[N_boids];    // Avoids paper flock
 struct boid paper_flock[N_boids];   // Avoids scissor flock
 struct boid scissor_flock[N_boids]; // Avoids rock flock
@@ -128,7 +127,7 @@ fix15 predator_flock_turnfactor = float2fix15(0.5);
 
 // Initializing predator s
 #define N_predators 5         // Total # of possible predators
-uint8_t curr_N_predators = 0; // Current # of predators
+uint8_t curr_N_predators = 5; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
@@ -207,7 +206,7 @@ void spawn(fix15 *x, fix15 *y, fix15 *vx, fix15 *vy)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Boid_algo initial calculation for ith boid
-void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
+void boid_algo_init_calc(uint16_t curr_boid, uint8_t flock_type)
 {
     struct boid *curr_flock;
     struct boid *predator_flock;
@@ -228,19 +227,10 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
         predator_flock = rock_flock;
     }
 
-    // Initializes values needed for each boid calculation
-    fix15 squared_distance;
-    fix15 dx_i;
-    fix15 dy_i;
-
-    fix15 squared_predator_distance;
-    fix15 dx_p;
-    fix15 dy_p;
-
-    for (uint16_t j = i + 1; j < curr_N_boids; j++)
+    for (uint16_t i = curr_boid + 1; i < curr_N_boids; i++)
     {
-        dx_i = curr_flock[i].x - curr_flock[j].x;
-        dy_i = curr_flock[i].y - curr_flock[j].y;
+        fix15 dx_i = curr_flock[curr_boid].x - curr_flock[i].x;
+        fix15 dy_i = curr_flock[curr_boid].y - curr_flock[i].y;
 
         // Are both those differences less than the visual range?
         if (absfix15(dx_i) < visualRange && absfix15(dy_i) < visualRange)
@@ -249,67 +239,67 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
             if (absfix15(dx_i) < protectedRange && absfix15(dy_i) < protectedRange)
             {
                 // If so, add dx and dy to close_dx and close_dy for current boid
-                curr_flock[i].close_dx += dx_i;
-                curr_flock[i].close_dy += dy_i;
+                curr_flock[curr_boid].close_dx += dx_i;
+                curr_flock[curr_boid].close_dy += dy_i;
 
                 // If so, subtract dx and dy to close_dx and close_dy for other boid
-                curr_flock[j].close_dx -= dx_i;
-                curr_flock[j].close_dy -= dy_i;
+                curr_flock[i].close_dx -= dx_i;
+                curr_flock[i].close_dy -= dy_i;
             }
             else // Boid is in the visual range
             {
                 // Add other boid's x/y-coord and x/y vel to accumulator variables to boids
-                curr_flock[i].xpos_avg += curr_flock[j].x;
-                curr_flock[i].ypos_avg += curr_flock[j].y;
-                curr_flock[i].xvel_avg += curr_flock[j].vx;
-                curr_flock[i].yvel_avg += curr_flock[j].vy;
+                curr_flock[curr_boid].xpos_avg += curr_flock[i].x;
+                curr_flock[curr_boid].ypos_avg += curr_flock[i].y;
+                curr_flock[curr_boid].xvel_avg += curr_flock[i].vx;
+                curr_flock[curr_boid].yvel_avg += curr_flock[i].vy;
 
                 // Add boid's x/y-coord and x/y vel to accumulator variables to other boids
-                curr_flock[j].xpos_avg += curr_flock[i].x;
-                curr_flock[j].ypos_avg += curr_flock[i].y;
-                curr_flock[j].xvel_avg += curr_flock[i].vx;
-                curr_flock[j].yvel_avg += curr_flock[i].vy;
+                curr_flock[i].xpos_avg += curr_flock[curr_boid].x;
+                curr_flock[i].ypos_avg += curr_flock[curr_boid].y;
+                curr_flock[i].xvel_avg += curr_flock[curr_boid].vx;
+                curr_flock[i].yvel_avg += curr_flock[curr_boid].vy;
 
                 // Increment number of boids within visual range to both the current and other boid
+                curr_flock[curr_boid].neighboring_boids++;
                 curr_flock[i].neighboring_boids++;
-                curr_flock[j].neighboring_boids++;
             }
         }
     }
 
-    for (uint8_t k = 0; k < curr_N_boids; k++)
+    for (uint8_t i = 0; i < curr_N_boids; i++)
     {
         // Compute the differences in x and y coordinates
-        dx_p = curr_flock[i].x - predator_flock[k].x;
-        dy_p = curr_flock[i].y - predator_flock[k].y;
+        fix15 dx_flock_p = curr_flock[curr_boid].x - predator_flock[i].x;
+        fix15 dy_flock_p = curr_flock[curr_boid].y - predator_flock[i].y;
 
-        // Are both those differences less than the predatory range?
-        if (absfix15(dx_p) < predatory_flock_range && absfix15(dx_p) < predatory_flock_range)
+        // Are both those differences less than the flock predatory range?
+        if (absfix15(dx_flock_p) < predatory_flock_range && absfix15(dx_flock_p) < predatory_flock_range)
         {
-            curr_flock[i].predator_flock_dx += curr_flock[i].x - predator_flock[k].x;
-            curr_flock[i].predator_flock_dy += curr_flock[i].y - predator_flock[k].y;
+            curr_flock[curr_boid].predator_flock_dx += curr_flock[curr_boid].x - predator_flock[i].x;
+            curr_flock[curr_boid].predator_flock_dy += curr_flock[curr_boid].y - predator_flock[i].y;
 
-            // Increment the number of predators in the boid's predatory range
-            curr_flock[i].num_flock_predators++;
+            // Increment the number of flock predators in the boid's flock predatory range
+            curr_flock[curr_boid].num_flock_predators++;
         }
     }
 
-    for (uint8_t k = 0; k < curr_N_predators; k++)
+    for (uint8_t i = 0; i < curr_N_predators; i++)
     {
-        if (predators[k].alive_counter > 0)
+        if (predators[i].alive_counter > 0)
         {
             // Compute the differences in x and y coordinates
-            dx_p = curr_flock[i].x - predators[k].x;
-            dy_p = curr_flock[i].y - predators[k].y;
+            fix15 dx_p = curr_flock[curr_boid].x - predators[i].x;
+            fix15 dy_p = curr_flock[curr_boid].y - predators[i].y;
 
             // Are both those differences less than the predatory range?
             if (absfix15(dx_p) < predatory_range && absfix15(dx_p) < predatory_range)
             {
-                curr_flock[i].predator_dx += curr_flock[i].x - predators[k].x;
-                curr_flock[i].predator_dy += curr_flock[i].y - predators[k].y;
+                curr_flock[curr_boid].predator_dx += curr_flock[curr_boid].x - predators[i].x;
+                curr_flock[curr_boid].predator_dy += curr_flock[curr_boid].y - predators[i].y;
 
                 // Increment the number of predators in the boid's predatory range
-                curr_flock[i].num_predators++;
+                curr_flock[curr_boid].num_predators++;
             }
         }
     }
@@ -319,202 +309,200 @@ void boid_algo_init_calc_core(uint16_t i, uint8_t flock_type)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Update the x and y positions of each boid
-void boid_algo_update(uint16_t i_update, uint8_t flock_type)
+void boid_algo_update(uint16_t curr_boid, uint8_t flock_type)
 {
     struct boid *curr_flock;
     struct boid *predator_flock;
 
-    if (flock_type == 1)
+    if (flock_type == 0)
     {
         curr_flock = rock_flock;
         predator_flock = paper_flock;
     }
-    else if (flock_type == 2)
+    else if (flock_type == 1)
     {
         curr_flock = paper_flock;
         predator_flock = scissor_flock;
     }
-    else if (flock_type == 3)
+    else if (flock_type == 2)
     {
         curr_flock = scissor_flock;
         predator_flock = rock_flock;
     }
-    // Initializes values only needed for each boid update
-    fix15 neighboring_boids_div;
-    fix15 fin_xpos_avg;
-    fix15 fin_ypos_avg;
-    fix15 fin_xvel_avg;
-    fix15 fin_yvel_avg;
-    fix15 speed;
 
     // If there were any boids in the visual range
-    if (curr_flock[i_update].neighboring_boids > 0)
+    if (curr_flock[curr_boid].neighboring_boids > 0)
     {
         // Divide accumulator variables by number of boids in visual range
-        neighboring_boids_div = int2fix15(curr_flock[i_update].neighboring_boids);
-        fin_xpos_avg = divfix(curr_flock[i_update].xpos_avg, neighboring_boids_div);
-        fin_ypos_avg = divfix(curr_flock[i_update].ypos_avg, neighboring_boids_div);
-        fin_xvel_avg = divfix(curr_flock[i_update].xvel_avg, neighboring_boids_div);
-        fin_yvel_avg = divfix(curr_flock[i_update].yvel_avg, neighboring_boids_div);
+        fix15 neighboring_boids_div = int2fix15(curr_flock[curr_boid].neighboring_boids);
+        fix15 fin_xpos_avg = divfix(curr_flock[curr_boid].xpos_avg, neighboring_boids_div);
+        fix15 fin_ypos_avg = divfix(curr_flock[curr_boid].ypos_avg, neighboring_boids_div);
+        fix15 fin_xvel_avg = divfix(curr_flock[curr_boid].xvel_avg, neighboring_boids_div);
+        fix15 fin_yvel_avg = divfix(curr_flock[curr_boid].yvel_avg, neighboring_boids_div);
 
         // Add the centering/matching contributions to velocity
-        curr_flock[i_update].vx = (curr_flock[i_update].vx +
-                                   multfix15(fin_xpos_avg - curr_flock[i_update].x, centeringfactor) +
-                                   multfix15(fin_xvel_avg - curr_flock[i_update].vx, matchingfactor));
-        curr_flock[i_update].vy = (curr_flock[i_update].vy +
-                                   multfix15(fin_ypos_avg - curr_flock[i_update].y, centeringfactor) +
-                                   multfix15(fin_yvel_avg - curr_flock[i_update].vy, matchingfactor));
+        curr_flock[curr_boid].vx = (curr_flock[curr_boid].vx +
+                                    multfix15(fin_xpos_avg - curr_flock[curr_boid].x, centeringfactor) +
+                                    multfix15(fin_xvel_avg - curr_flock[curr_boid].vx, matchingfactor));
+        curr_flock[curr_boid].vy = (curr_flock[curr_boid].vy +
+                                    multfix15(fin_ypos_avg - curr_flock[curr_boid].y, centeringfactor) +
+                                    multfix15(fin_yvel_avg - curr_flock[curr_boid].vy, matchingfactor));
     }
 
     // Add the avoidance contribution to velocity
-    curr_flock[i_update].vx = curr_flock[i_update].vx + multfix15(curr_flock[i_update].close_dx, avoidfactor);
-    curr_flock[i_update].vy = curr_flock[i_update].vy + multfix15(curr_flock[i_update].close_dy, avoidfactor);
+    curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + multfix15(curr_flock[curr_boid].close_dx, avoidfactor);
+    curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + multfix15(curr_flock[curr_boid].close_dy, avoidfactor);
 
-    if (hitTop(curr_flock[i_update].y))
+    // Add box arena contribution to velocity
+    if (hitTop(curr_flock[curr_boid].y))
     {
-        curr_flock[i_update].vy = curr_flock[i_update].vy + turnfactor;
+        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + turnfactor;
     }
-    else if (hitBottom(curr_flock[i_update].y))
+    else if (hitBottom(curr_flock[curr_boid].y))
     {
-        curr_flock[i_update].vy = curr_flock[i_update].vy - turnfactor;
+        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy - turnfactor;
     }
 
-    if (hitLeft(curr_flock[i_update].x))
+    if (hitLeft(curr_flock[curr_boid].x))
     {
-        curr_flock[i_update].vx = curr_flock[i_update].vx + turnfactor;
+        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + turnfactor;
     }
-    else if (hitRight(curr_flock[i_update].x))
+    else if (hitRight(curr_flock[curr_boid].x))
     {
-        curr_flock[i_update].vx = curr_flock[i_update].vx - turnfactor;
+        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx - turnfactor;
     }
 
     // If there were any predators from predatory flock in the flock predatory range, turn away
-    if (curr_flock[i_update].num_flock_predators > 0)
+    if (curr_flock[curr_boid].num_flock_predators > 0)
     {
-        if (curr_flock[i_update].predator_flock_dy > 0)
+        if (curr_flock[curr_boid].predator_flock_dy > 0)
         {
-            curr_flock[i_update].vy = curr_flock[i_update].vy + predator_flock_turnfactor;
+            curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + predator_flock_turnfactor;
         }
-        if (curr_flock[i_update].predator_flock_dy < 0)
+        if (curr_flock[curr_boid].predator_flock_dy < 0)
         {
-            curr_flock[i_update].vy = curr_flock[i_update].vy - predator_flock_turnfactor;
+            curr_flock[curr_boid].vy = curr_flock[curr_boid].vy - predator_flock_turnfactor;
         }
-        if (curr_flock[i_update].predator_flock_dx > 0)
+        if (curr_flock[curr_boid].predator_flock_dx > 0)
         {
-            curr_flock[i_update].vx = curr_flock[i_update].vx + predator_flock_turnfactor;
+            curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + predator_flock_turnfactor;
         }
-        if (curr_flock[i_update].predator_flock_dx < 0)
+        if (curr_flock[curr_boid].predator_flock_dx < 0)
         {
-            curr_flock[i_update].vx = curr_flock[i_update].vx - predator_flock_turnfactor;
+            curr_flock[curr_boid].vx = curr_flock[curr_boid].vx - predator_flock_turnfactor;
         }
     }
 
     // If there were any predators in the predatory range, turn away
-    if (curr_flock[i_update].num_predators > 0)
+    if (curr_flock[curr_boid].num_predators > 0)
     {
-        if (curr_flock[i_update].predator_dy > 0)
+        if (curr_flock[curr_boid].predator_dy > 0)
         {
-            curr_flock[i_update].vy = curr_flock[i_update].vy + predator_turnfactor;
+            curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + predator_turnfactor;
         }
-        if (curr_flock[i_update].predator_dy < 0)
+        if (curr_flock[curr_boid].predator_dy < 0)
         {
-            curr_flock[i_update].vy = curr_flock[i_update].vy - predator_turnfactor;
+            curr_flock[curr_boid].vy = curr_flock[curr_boid].vy - predator_turnfactor;
         }
-        if (curr_flock[i_update].predator_dx > 0)
+        if (curr_flock[curr_boid].predator_dx > 0)
         {
-            curr_flock[i_update].vx = curr_flock[i_update].vx + predator_turnfactor;
+            curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + predator_turnfactor;
         }
-        if (curr_flock[i_update].predator_dx < 0)
+        if (curr_flock[curr_boid].predator_dx < 0)
         {
-            curr_flock[i_update].vx = curr_flock[i_update].vx - predator_turnfactor;
+            curr_flock[curr_boid].vx = curr_flock[curr_boid].vx - predator_turnfactor;
         }
     }
 
+    fix15 speed;
     // Calculate the boid's speed
     // Calculated using the alpha beta max algorithm
     // speed = 1*v_max + 1/4 * v_min --> shift by 2 instead of multiply 0.25
-    if (absfix15(curr_flock[i_update].vx) < absfix15(curr_flock[i_update].vy))
+    if (absfix15(curr_flock[curr_boid].vx) < absfix15(curr_flock[curr_boid].vy))
     {
-
-        speed = absfix15(curr_flock[i_update].vy) + (absfix15(curr_flock[i_update].vx) >> 2);
+        speed = absfix15(curr_flock[curr_boid].vy) + (absfix15(curr_flock[curr_boid].vx) >> 2);
     }
     else
     {
-        speed = absfix15(curr_flock[i_update].vx) + (absfix15(curr_flock[i_update].vy) >> 2);
+        speed = absfix15(curr_flock[curr_boid].vx) + (absfix15(curr_flock[curr_boid].vy) >> 2);
     }
 
     if (speed > maxspeed)
     {
-        curr_flock[i_update].vx = curr_flock[i_update].vx - (curr_flock[i_update].vx >> 2);
-        curr_flock[i_update].vy = curr_flock[i_update].vy - (curr_flock[i_update].vy >> 2);
+        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx - (curr_flock[curr_boid].vx >> 2);
+        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy - (curr_flock[curr_boid].vy >> 2);
     }
     if (speed < minspeed)
     {
-        curr_flock[i_update].vx = curr_flock[i_update].vx + (curr_flock[i_update].vx >> 2);
-        curr_flock[i_update].vy = curr_flock[i_update].vy + (curr_flock[i_update].vy >> 2);
+        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + (curr_flock[curr_boid].vx >> 2);
+        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + (curr_flock[curr_boid].vy >> 2);
     }
 
     // Update position using velocity
-    curr_flock[i_update].x = curr_flock[i_update].x + curr_flock[i_update].vx;
-    curr_flock[i_update].y = curr_flock[i_update].y + curr_flock[i_update].vy;
+    curr_flock[curr_boid].x = curr_flock[curr_boid].x + curr_flock[curr_boid].vx;
+    curr_flock[curr_boid].y = curr_flock[curr_boid].y + curr_flock[curr_boid].vy;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void predator_algo(uint8_t l)
+void predator_algo(uint8_t current_predator)
 {
+    // If the predator is near a box edge, make it turn by turnfactor
+    if (hitTop(predators[current_predator].y))
+    {
+        predators[current_predator].vy = predators[current_predator].vy + turnfactor;
+    }
+    if (hitBottom(predators[current_predator].y))
+    {
+        predators[current_predator].vy = predators[current_predator].vy - turnfactor;
+    }
+
+    if (hitLeft(predators[current_predator].x))
+    {
+        predators[current_predator].vx = predators[current_predator].vx + turnfactor;
+    }
+    if (hitRight(predators[current_predator].x))
+    {
+        predators[current_predator].vx = predators[current_predator].vx - turnfactor;
+    }
 
     fix15 speed;
-
-    // If the predator is near a box edge, make it turn by turnfactor
-    if (hitTop(predators[l].y))
-    {
-        predators[l].vy = predators[l].vy + turnfactor;
-    }
-    if (hitBottom(predators[l].y))
-    {
-        predators[l].vy = predators[l].vy - turnfactor;
-    }
-    if (hitLeft(predators[l].x))
-    {
-        predators[l].vx = predators[l].vx + turnfactor;
-    }
-    if (hitRight(predators[l].x))
-    {
-        predators[l].vx = predators[l].vx - turnfactor;
-    }
-
     // Calculate the predator's speed
-    if (absfix15(predators[l].vx) < absfix15(predators[l].vy))
+    if (absfix15(predators[current_predator].vx) < absfix15(predators[current_predator].vy))
     {
-        speed = absfix15(predators[l].vy) + (absfix15(predators[l].vx) >> 2);
+        speed = absfix15(predators[current_predator].vy) + (absfix15(predators[current_predator].vx) >> 2);
     }
     else
     {
-        speed = absfix15(predators[l].vx) + (absfix15(predators[l].vy) >> 2);
+        speed = absfix15(predators[current_predator].vx) + (absfix15(predators[current_predator].vy) >> 2);
     }
 
     if (speed > maxspeed)
     {
-        predators[l].vx = predators[l].vx - (predators[l].vx >> 2);
-        predators[l].vy = predators[l].vy - (predators[l].vy >> 2);
+        predators[current_predator].vx = predators[current_predator].vx - (predators[current_predator].vx >> 2);
+        predators[current_predator].vy = predators[current_predator].vy - (predators[current_predator].vy >> 2);
     }
     if (speed < minspeed)
     {
-        predators[l].vx = predators[l].vx + (predators[l].vx >> 2);
-        predators[l].vy = predators[l].vy + (predators[l].vy >> 2);
+        predators[current_predator].vx = predators[current_predator].vx + (predators[current_predator].vx >> 2);
+        predators[current_predator].vy = predators[current_predator].vy + (predators[current_predator].vy >> 2);
     }
 
     // Update position using velocity
-    predators[l].x = predators[l].x + predators[l].vx;
-    predators[l].y = predators[l].y + predators[l].vy;
+    predators[current_predator].x = predators[current_predator].x + predators[current_predator].vx;
+    predators[current_predator].y = predators[current_predator].y + predators[current_predator].vy;
 
     // Update the alive counter
-    predators[l].alive_counter++;
-    if (predators[l].alive_counter > 5)
+    // 0 means predator is not being drawn and not affecting flocks, and should not be incremented
+    // 1 - 100 means it is being drawn and affecting flocks
+    if (predators[current_predator].alive_counter > 0)
     {
-        predators[l].alive_counter = 0;
+        predators[current_predator].alive_counter++;
+    }
+    if (predators[current_predator].alive_counter > 100)
+    {
+        predators[current_predator].alive_counter = 0;
     }
 }
 
@@ -533,7 +521,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
 
     // announce the threader version
     sprintf(pt_serial_out_buffer, "Protothreads RP2040 v1.0\n\r");
-    // printf("Yoooooo\n\r");
+
     // non-blocking write
     serial_write;
 
@@ -543,6 +531,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
     {
         // print prompt
         sprintf(pt_serial_out_buffer, "Enter Command> ");
+
         // spawn a thread to do the non-blocking write
         serial_write;
 
@@ -559,19 +548,20 @@ static PT_THREAD(protothread_serial(struct pt *pt))
         if (strcmp(cmd, "help") == 0)
         {
             // List commands
-            printf("turnfactor\n\r");
-            printf("visualrange\n\r");
-            printf("protectedrange\n\r");
-            printf("centeringfactor\n\r");
-            printf("avoidfactor\n\r");
-            printf("matchingfactor\n\r");
-            printf("numberBoids\n\r");
-            printf("numberPredators\n\r");
-            printf("numberBoids\n\r");
-            printf("mood\n\r");
+            printf("turnfactor <float>\n\r");
+            printf("visualrange <int>\n\r");
+            printf("protectedrange <int>\n\r");
+            printf("centeringfactor <float>\n\r");
+            printf("avoidfactor <float>\n\r");
+            printf("matchingfactor <float>\n\r");
+            printf("numberBoids <int>\n\r");
+            printf("numberPredators <int>\n\r");
+            printf("numberBoids <int> 0\n\r");
+            printf("mood <int>\n\r");
             printf("splash\n\r");
+            printf("from\n\n");
         }
-        else if (strcmp(cmd,"from") == 0)
+        else if (strcmp(cmd, "from") == 0)
         {
             mood = (uint8_t)2;
         }
@@ -623,62 +613,35 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; i < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t i = 0; i < curr_N_boids; i++)
-                    {
-                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 2, BLACK);
-                    }
+                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
                 {
-                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, BLACK);
+                    fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
+                    predators[current_predator].alive_counter = 0;
                 }
 
                 curr_N_boids = (uint16_t)(atoi(arg1));
-                half_N_boids = curr_N_boids >> 1;
 
                 // Spawn boid flocks
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
-                    {
-                        spawn(&curr_flock[current_boid].x, &curr_flock[current_boid].y, &curr_flock[current_boid].vx, &curr_flock[current_boid].vy);
-                    }
+                    // All boid properties are zerod out from other thread
+                    spawn(&rock_flock[current_boid].x, &rock_flock[current_boid].y, &rock_flock[current_boid].vx, &rock_flock[current_boid].vy);
+                    spawn(&paper_flock[current_boid].x, &paper_flock[current_boid].y, &paper_flock[current_boid].vx, &paper_flock[current_boid].vy);
+                    spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &scissor_flock[current_boid].vy);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; l++)
                 {
-                    spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
+                    spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
+                    // Need to zero out alive counters
+                    predators[current_predator].alive_counter = 0;
                 }
             }
         }
@@ -687,61 +650,35 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; i < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t i = 0; i < curr_N_boids; i++)
-                    {
-                        fillCircle(fix2int15(curr_flock[i].x), fix2int15(curr_flock[i].y), 2, BLACK);
-                    }
+                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
                 {
-                    fillCircle(fix2int15(predators[l].x), fix2int15(predators[l].y), 2, BLACK);
+                    fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
                 }
 
                 curr_N_predators = (uint16_t)(atoi(arg1));
 
                 // Spawn boid flocks
-                for (uint8_t m = 0; m < N_flocks; m++)
+                for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
-                    struct boid *curr_flock;
-                    if (m == 1)
-                    {
-                        curr_flock = rock_flock;
-                    }
-                    else if (m == 2)
-                    {
-                        curr_flock = paper_flock;
-                    }
-                    else if (m == 3)
-                    {
-                        curr_flock = scissor_flock;
-                    }
-
-                    for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
-                    {
-                        spawn(&curr_flock[current_boid].x, &curr_flock[current_boid].y, &curr_flock[current_boid].vx, &curr_flock[current_boid].vy);
-                    }
+                    // All boid properties are zerod out from other thread
+                    spawn(&rock_flock[current_boid].x, &rock_flock[current_boid].y, &rock_flock[current_boid].vx, &rock_flock[current_boid].vy);
+                    spawn(&paper_flock[current_boid].x, &paper_flock[current_boid].y, &paper_flock[current_boid].vx, &paper_flock[current_boid].vy);
+                    spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &scissor_flock[current_boid].vy);
                 }
 
-                for (uint8_t l = 0; l < curr_N_predators; l++)
+                // Spawn predators
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; l++)
                 {
-                    spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
+                    spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
+                    // Need to zero out alive counters
+                    predators[current_predator].alive_counter = 0;
                 }
             }
         }
@@ -758,7 +695,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 predators[predator_spawn_index].alive_counter = 1;
                 predator_spawn_index++;
-                if (predator_spawn_index > 4)
+                if (predator_spawn_index == curr_N_predators)
                 {
                     predator_spawn_index = 0;
                 }
@@ -778,7 +715,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 {
     // Mark beginning of thread
     PT_BEGIN(pt);
-    // printf("HERE\n");
+
     // Variables for maintaining frame rate
     static int begin_time;
     static int spare_time;
@@ -786,32 +723,14 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     static int counter = 0;
     char str1[10];
     char str2[18];
-    // char str3[25];
-    char str4[11];
+    char str3[11];
 
     // Spawn boid flocks
-    for (uint8_t m = 0; m < N_flocks; m++)
+    for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
     {
-        printf("%d\n", m);
-        struct boid *curr_flock;
-        if (m == 0)
-        {
-            curr_flock = rock_flock;
-        }
-        else if (m == 1)
-        {
-            curr_flock = paper_flock;
-        }
-        else if (m == 2)
-        {
-            curr_flock = scissor_flock;
-        }
-
-        for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
-        {
-            // printf("%d\n", current_boid);
-            spawn(&curr_flock[current_boid].x, &curr_flock[current_boid].y, &curr_flock[current_boid].vx, &curr_flock[current_boid].vy);
-        }
+        spawn(&rock_flock[current_boid].x, &rock_flock[current_boid].y, &rock_flock[current_boid].vx, &rock_flock[current_boid].vy);
+        spawn(&paper_flock[current_boid].x, &paper_flock[current_boid].y, &paper_flock[current_boid].vx, &paper_flock[current_boid].vy);
+        spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &paper_flock[current_boid].vy);
     }
 
     // Spawn all predators
@@ -820,27 +739,23 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
     }
 
-    // printf("HERE\n");
     while (1)
     {
         // Measure time at start of thread
         begin_time = time_us_32();
 
-        // printf("THREADING\n");
-
-        for (uint8_t m = 0; m < N_flocks; m++)
+        for (uint8_t flock_type = 0; flock_type < N_flocks; flock_type++)
         {
             for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
             {
                 // update boid's position and velocity
-                boid_algo_init_calc_core(current_boid, m);
+                boid_algo_init_calc(current_boid, flock_type);
             }
         }
 
-        // printf("THREADING 2\n");
-
-        char color = BLACK;
         // Calculate mood
+        char color = BLACK;
+
         if (mood == 0)
         {
             color = GREEN;
@@ -854,22 +769,20 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             color = RED;
         }
 
-        // printf("THREADING 3\n");
-
-        for (uint8_t m = 0; m < N_flocks; m++)
+        for (uint8_t flock_type = 0; flock_type < N_flocks; flock_type++)
         {
             for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
             {
                 struct boid *curr_flock;
-                if (m == 0)
+                if (flock_type == 0)
                 {
                     curr_flock = rock_flock;
                 }
-                else if (m == 1)
+                else if (flock_type == 1)
                 {
                     curr_flock = paper_flock;
                 }
-                else if (m == 2)
+                else if (flock_type == 2)
                 {
                     curr_flock = scissor_flock;
                 }
@@ -878,15 +791,17 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLACK);
 
                 // Update boid state
-                boid_algo_update(current_boid, mood);
+                boid_algo_update(current_boid, flock_type);
 
                 // Draw the boid at its new position
                 if (curr_flock[current_boid].num_predators > 0)
                 {
+                    // In proximity of "splash", so draw white
                     fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, WHITE);
                 }
                 else
                 {
+                    // Not in proximity of "splash", so draw mood color
                     fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, color);
                 }
 
@@ -909,12 +824,11 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             }
         }
 
-        // printf("THREADING 4\n");
-
         for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
         {
             // Erase predator
             fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
+
             // Update predator's position and velocity
             predator_algo(current_predator);
 
@@ -924,8 +838,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, WHITE);
             }
         }
-
-        // printf("THREADING 5\n");
 
         if (counter > 30)
         {
@@ -952,7 +864,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             setCursor(10, 40);
             setTextColor(WHITE);
             setTextSize(1);
-            writeString(str4);
+            writeString(str3);
 
             counter = 0;
         }
@@ -976,21 +888,14 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 // USE ONLY C-sdk library
 int main()
 {
-    set_sys_clock_khz(250000, true);
+    // Overclocking
+    // set_sys_clock_khz(250000, true);
+
     // initialize stio
     stdio_init_all();
 
     // initialize VGA
     initVGA();
-
-    // Map LED to GPIO port, make it low
-    //   gpio_init(LED);
-    //   gpio_set_dir(LED, GPIO_OUT);
-    //   gpio_put(LED, 0);
-
-    // start core 1
-    // multicore_reset_core1();
-    // multicore_launch_core1(&core1_main);
 
     // add threads
     pt_add_thread(protothread_serial);
