@@ -105,9 +105,8 @@ struct predator
 
 // Initializing boids
 #define N_flocks 3
-#define N_boids 100          // Max number of boids per flock
-uint16_t curr_N_boids = 100; // Current number of boids
-uint16_t half_N_boids = 50;
+#define N_boids 100                 // Max number of boids per flock
+uint16_t curr_N_boids = 100;        // Current number of boids
 struct boid rock_flock[N_boids];    // Avoids paper flock
 struct boid paper_flock[N_boids];   // Avoids scissor flock
 struct boid scissor_flock[N_boids]; // Avoids rock flock
@@ -464,7 +463,6 @@ void boid_algo_update(uint16_t i_update, uint8_t flock_type)
 
 void predator_algo(uint8_t l)
 {
-
     fix15 speed;
 
     // If the predator is near a box edge, make it turn by turnfactor
@@ -516,10 +514,6 @@ void predator_algo(uint8_t l)
     if (predators[l].alive_counter > 0)
     {
         predators[l].alive_counter++;
-    }
-    if (predators[l].alive_counter > 100)
-    {
-        predators[l].alive_counter = 0;
     }
     if (predators[l].alive_counter > 100)
     {
@@ -644,7 +638,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
                 {
                     fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
-                    predators[current_predator].alive_counter = 0;
                 }
 
                 curr_N_boids = (uint16_t)(atoi(arg1));

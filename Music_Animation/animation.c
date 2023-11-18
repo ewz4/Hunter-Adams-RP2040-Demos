@@ -623,7 +623,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
                 {
                     fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
-                    predators[current_predator].alive_counter = 0;
                 }
 
                 curr_N_boids = (uint16_t)(atoi(arg1));
