@@ -59,10 +59,10 @@ typedef signed int fix15;
 #define sqrtfix(a) (float2fix15(sqrt(fix2float15(a))))
 
 // Wall detection
-#define hitBottom(b) (b > int2fix15(380))
-#define hitTop(b) (b < int2fix15(100))
-#define hitLeft(a) (a < int2fix15(100))
-#define hitRight(a) (a > int2fix15(540))
+#define hitBottom(b) (b > int2fix15(330))
+#define hitTop(b) (b < int2fix15(150))
+#define hitLeft(a) (a < int2fix15(150))
+#define hitRight(a) (a > int2fix15(490))
 
 // uS per frame
 #define FRAME_RATE 33000
@@ -105,7 +105,7 @@ struct predator
 
 // Initializing boids
 #define N_flocks 3
-#define N_boids 100                 // Max number of boids per flock
+#define N_boids 200                 // Max number of boids per flock
 uint16_t curr_N_boids = 100;        // Current number of boids
 struct boid rock_flock[N_boids];    // Avoids paper flock
 struct boid paper_flock[N_boids];   // Avoids scissor flock
@@ -115,14 +115,14 @@ struct boid scissor_flock[N_boids]; // Avoids rock flock
 fix15 turnfactor = float2fix15(0.2);
 fix15 visualRange = int2fix15(40);
 fix15 protectedRange = int2fix15(8);
-fix15 centeringfactor = float2fix15(0.0005);
+fix15 centeringfactor = float2fix15(0.05);
 fix15 avoidfactor = float2fix15(0.05);
 fix15 matchingfactor = float2fix15(0.05);
 fix15 maxspeed = int2fix15(6);
 fix15 minspeed = int2fix15(3);
 
 // Initializing predatory flock parameters
-fix15 predatory_flock_range = int2fix15(10);
+fix15 predatory_flock_range = int2fix15(5);
 fix15 predator_flock_turnfactor = float2fix15(0.3);
 
 // Initializing predator s
@@ -131,7 +131,7 @@ uint8_t curr_N_predators = 5; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
-fix15 predatory_range = int2fix15(100);
+fix15 predatory_range = int2fix15(50);
 fix15 predator_turnfactor = float2fix15(0.5);
 
 // Mood
