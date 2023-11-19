@@ -122,8 +122,8 @@ fix15 maxspeed = int2fix15(6);
 fix15 minspeed = int2fix15(3);
 
 // Initializing predatory flock parameters
-fix15 predatory_flock_range = int2fix15(50);
-fix15 predator_flock_turnfactor = float2fix15(0.5);
+fix15 predatory_flock_range = int2fix15(10);
+fix15 predator_flock_turnfactor = float2fix15(0.3);
 
 // Initializing predator s
 #define N_predators 5         // Total # of possible predators
@@ -613,14 +613,14 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
-                for (uint16_t current_boid = 0; i < curr_N_boids; current_boid++)
+                for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
                     fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
                     fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
                     fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
                 }
 
-                for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
                 {
                     fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
                 }
@@ -636,7 +636,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                     spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &scissor_flock[current_boid].vy);
                 }
 
-                for (uint8_t current_predator = 0; current_predator < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
                 {
                     spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
                     // Need to zero out alive counters
@@ -649,14 +649,14 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             // erase predators and boids, and rerandomize initialization
             if (arg1 != NULL)
             {
-                for (uint16_t current_boid = 0; i < curr_N_boids; current_boid++)
+                for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
                     fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
                     fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
                     fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
                 }
 
-                for (uint8_t current_predator = 0; l < curr_N_predators; current_predator++)
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
                 {
                     fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
                 }
@@ -673,7 +673,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 }
 
                 // Spawn predators
-                for (uint8_t current_predator = 0; current_predator < curr_N_predators; l++)
+                for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
                 {
                     spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
                     // Need to zero out alive counters
@@ -733,9 +733,9 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     }
 
     // Spawn all predators
-    for (uint8_t l = 0; l < curr_N_predators; l++)
+    for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
     {
-        spawn(&predators[l].x, &predators[l].y, &predators[l].vx, &predators[l].vy);
+        spawn(&predators[current_predator].x, &predators[current_predator].y, &predators[current_predator].vx, &predators[current_predator].vy);
     }
 
     while (1)
@@ -800,8 +800,20 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 }
                 else
                 {
-                    // Not in proximity of "splash", so draw mood color
-                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, color);
+                    if (flock_type == 0)
+                    {
+                        // Not in proximity of "splash", so draw mood color
+                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, RED);
+                    }
+                    else if (flock_type == 1)
+                    {
+                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, GREEN);
+                    }
+                    else if (flock_type == 2)
+                    {
+                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLUE);
+                    }
+                    // fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLUE);
                 }
 
                 // Set all values needed for boid calculate back to 0
@@ -847,7 +859,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             total_time = time_us_32() / 1000000;
             sprintf(str1, "Time=%d", total_time);
             sprintf(str2, "Spare Time=%d", spare_time);
-            sprintf(str4, "Boids=%d", curr_N_boids);
+            sprintf(str3, "Boids=%d", curr_N_boids);
 
             fillRect(0, 0, 150, 70, BLACK);
             setCursor(10, 10);
