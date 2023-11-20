@@ -112,17 +112,17 @@ struct boid paper_flock[N_boids];   // Avoids scissor flock
 struct boid scissor_flock[N_boids]; // Avoids rock flock
 
 // Initializing boid parameters
-fix15 turnfactor = float2fix15(0.2);
+fix15 turnfactor = float2fix15(0.3);
 fix15 visualRange = int2fix15(40);
-fix15 protectedRange = int2fix15(8);
+fix15 protectedRange = int2fix15(10);
 fix15 centeringfactor = float2fix15(0.05);
-fix15 avoidfactor = float2fix15(0.05);
+fix15 avoidfactor = float2fix15(0.1);
 fix15 matchingfactor = float2fix15(0.05);
 fix15 maxspeed = int2fix15(6);
 fix15 minspeed = int2fix15(3);
 
 // Initializing predatory flock parameters
-fix15 predatory_flock_range = int2fix15(5);
+fix15 predator_flock_range = int2fix15(5);
 fix15 predator_flock_turnfactor = float2fix15(0.3);
 
 // Initializing predator s
@@ -131,21 +131,12 @@ uint8_t curr_N_predators = 5; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
-fix15 predatory_range = int2fix15(50);
+fix15 predator_range = int2fix15(50);
 fix15 predator_turnfactor = float2fix15(0.5);
 
 // Mood
 uint8_t mood = 0;
-
-// All boolean values for both cores --> will wait for other core to synchronize animation
-// volatile bool still_running_0_current_update = true;
-// volatile bool still_running_0_spawn = true;
-// volatile bool still_running_0_draw = true;
-// volatile bool still_running_1_current_update = true;
-// volatile bool still_running_1_spawn = true;
-// volatile bool still_running_1_draw = true;
-// volatile bool still_running_0_string_output = true;
-// volatile bool still_running_1_string_output = true;
+volatile float Splash_Color = 0;
 
 // Margin Size
 // uint16_t x_margin_left_box = 100;
@@ -179,28 +170,6 @@ void spawn(fix15 *x, fix15 *y, fix15 *vx, fix15 *vy)
     *vx = int2fix15(rand() % 3 + 3);
     *vy = int2fix15(rand() % 3 + 3);
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Draw the boundaries
-// void drawArena(int should_draw)
-// {
-//     if (should_draw == 1)
-//     {
-//         // Draws a box on the screen
-//         drawVLine(x_margin_left_box, y_margin_top_box, y_change_margin_box, WHITE);
-//         drawVLine(x_margin_right_box, y_margin_top_box, y_change_margin_box, WHITE);
-//         drawHLine(x_margin_left_box, y_margin_top_box, x_change_margin_box, WHITE);
-//         drawHLine(x_margin_left_box, y_margin_bottom_box, x_change_margin_box, WHITE);
-//     }
-//     else if (should_draw == 2)
-//     {
-//         // Draws 2 vertical lines on the screen
-//         drawVLine(x_margin_left_V_line, y_margin_top_line, y_change_margin_line, WHITE);
-//         drawVLine(x_margin_right_V_line, y_margin_top_line, y_change_margin_line, WHITE);
-//     }
-// }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,7 +243,7 @@ void boid_algo_init_calc(uint16_t curr_boid, uint8_t flock_type)
         fix15 dy_flock_p = curr_flock[curr_boid].y - predator_flock[i].y;
 
         // Are both those differences less than the flock predatory range?
-        if (absfix15(dx_flock_p) < predatory_flock_range && absfix15(dx_flock_p) < predatory_flock_range)
+        if (absfix15(dx_flock_p) < predator_flock_range && absfix15(dx_flock_p) < predator_flock_range)
         {
             curr_flock[curr_boid].predator_flock_dx += curr_flock[curr_boid].x - predator_flock[i].x;
             curr_flock[curr_boid].predator_flock_dy += curr_flock[curr_boid].y - predator_flock[i].y;
@@ -293,7 +262,7 @@ void boid_algo_init_calc(uint16_t curr_boid, uint8_t flock_type)
             fix15 dy_p = curr_flock[curr_boid].y - predators[i].y;
 
             // Are both those differences less than the predatory range?
-            if (absfix15(dx_p) < predatory_range && absfix15(dx_p) < predatory_range)
+            if (absfix15(dx_p) < predator_range && absfix15(dx_p) < predator_range)
             {
                 curr_flock[curr_boid].predator_dx += curr_flock[curr_boid].x - predators[i].x;
                 curr_flock[curr_boid].predator_dy += curr_flock[curr_boid].y - predators[i].y;
@@ -557,9 +526,16 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             printf("numberBoids <int>\n\r");
             printf("numberPredators <int>\n\r");
             printf("numberBoids <int> 0\n\r");
+            printf("maxspeed <int>\n\r");
+            printf("minspeed <int>\n\r");
+            printf("predatorFlockRange <int>\n\r");
+            printf("predatorFlockTurnfactor <float>\n\r");
+            printf("predatorRange <int>\n\r");
+            printf("predatorTurnfactor <float>\n\r");
             printf("mood <int>\n\r");
             printf("splash\n\r");
             printf("from\n\n");
+            printf("splashColor <float>\n\r");
         }
         else if (strcmp(cmd, "from") == 0)
         {
@@ -615,14 +591,14 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
-                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 2, BLACK);
-                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 2, BLACK);
-                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 2, BLACK);
+                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 5, BLACK);
+                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 5, BLACK);
+                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 5, BLACK);
                 }
 
                 for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
                 {
-                    fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
+                    fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 5, BLACK);
                 }
 
                 curr_N_boids = (uint16_t)(atoi(arg1));
@@ -681,6 +657,48 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 }
             }
         }
+        else if (strcmp(cmd, "predatorFlockRange") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                predator_flock_range = int2fix15(atoi(arg1));
+            }
+        }
+        else if (strcmp(cmd, "predatorFlockTurnfactor") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                predator_flock_turnfactor = float2fix15(atof(arg1));
+            }
+        }
+        else if (strcmp(cmd, "predatorRange") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                predator_range = int2fix15(atoi(arg1));
+            }
+        }
+        else if (strcmp(cmd, "predatorTurnfactor") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                predator_turnfactor = float2fix15(atof(arg1));
+            }
+        }
+        else if (strcmp(cmd, "maxspeed") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                maxspeed = int2fix15(atoi(arg1));
+            }
+        }
+        else if (strcmp(cmd, "minspeed") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                maxspeed = int2fix15(atoi(arg1));
+            }
+        }
         else if (strcmp(cmd, "mood") == 0)
         {
             if (arg1 != NULL)
@@ -700,6 +718,13 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 }
             }
         }
+        else if (strcmp(cmd, "splashColor") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                Splash_Color = atof(arg1);
+            }
+        } 
         else
             printf("Huh?\n\r");
     } // END WHILE(1)
@@ -787,7 +812,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 }
 
                 // Erase boid
-                fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLACK);
+                fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 5, BLACK);
 
                 // Update boid state
                 boid_algo_update(current_boid, flock_type);
@@ -796,22 +821,22 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 if (curr_flock[current_boid].num_predators > 0)
                 {
                     // In proximity of "splash", so draw white
-                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, WHITE);
+                    fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 5, Splash_Color);
                 }
                 else
                 {
                     if (flock_type == 0)
                     {
                         // Not in proximity of "splash", so draw mood color
-                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, RED);
+                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 5, RED);
                     }
                     else if (flock_type == 1)
                     {
-                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, GREEN);
+                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 5, GREEN);
                     }
                     else if (flock_type == 2)
                     {
-                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLUE);
+                        fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 5, BLUE);
                     }
                     // fillCircle(fix2int15(curr_flock[current_boid].x), fix2int15(curr_flock[current_boid].y), 2, BLUE);
                 }
@@ -838,7 +863,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
         {
             // Erase predator
-            fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, BLACK);
+            fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 5, BLACK);
 
             // Update predator's position and velocity
             predator_algo(current_predator);
@@ -846,7 +871,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             if (predators[current_predator].alive_counter > 0)
             {
                 // Draw the predator at its new position
-                fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 2, WHITE);
+                fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 5, WHITE);
             }
         }
 

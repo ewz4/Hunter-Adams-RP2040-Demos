@@ -204,7 +204,7 @@ fix15 maxspeed = int2fix15(6);
 fix15 minspeed = int2fix15(3);
 
 // Initializing predatory flock parameters
-fix15 predatory_flock_range = int2fix15(5);
+fix15 predator_flock_range = int2fix15(5);
 fix15 predator_flock_turnfactor = float2fix15(0.3);
 
 // Initializing predator s
@@ -213,7 +213,7 @@ uint8_t curr_N_predators = 5; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
-fix15 predatory_range = int2fix15(50);
+fix15 predator_range = int2fix15(50);
 fix15 predator_turnfactor = float2fix15(0.5);
 
 // Mood
@@ -525,7 +525,7 @@ void boid_algo_init_calc(uint16_t curr_boid, uint8_t flock_type)
         fix15 dy_flock_p = curr_flock[curr_boid].y - predator_flock[i].y;
 
         // Are both those differences less than the flock predatory range?
-        if (absfix15(dx_flock_p) < predatory_flock_range && absfix15(dx_flock_p) < predatory_flock_range)
+        if (absfix15(dx_flock_p) < predator_flock_range && absfix15(dx_flock_p) < predator_flock_range)
         {
             curr_flock[curr_boid].predator_flock_dx += curr_flock[curr_boid].x - predator_flock[i].x;
             curr_flock[curr_boid].predator_flock_dy += curr_flock[curr_boid].y - predator_flock[i].y;
@@ -544,7 +544,7 @@ void boid_algo_init_calc(uint16_t curr_boid, uint8_t flock_type)
             fix15 dy_p = curr_flock[curr_boid].y - predators[i].y;
 
             // Are both those differences less than the predatory range?
-            if (absfix15(dx_p) < predatory_range && absfix15(dx_p) < predatory_range)
+            if (absfix15(dx_p) < predator_range && absfix15(dx_p) < predator_range)
             {
                 curr_flock[curr_boid].predator_dx += curr_flock[curr_boid].x - predators[i].x;
                 curr_flock[curr_boid].predator_dy += curr_flock[curr_boid].y - predators[i].y;
