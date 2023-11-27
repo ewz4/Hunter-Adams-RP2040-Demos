@@ -23,7 +23,7 @@ pico_generate_pio_header(graphics_test ${CMAKE_CURRENT_LIST_DIR}/rgb2.pio)
 
 # must match with executable name and source file names
 target_sources(graphics_test PRIVATE 
-	vga256_graphics_image.c 
+	vga256_graphics_demo.c 
 	vga256_graphics.c
 	)
 
