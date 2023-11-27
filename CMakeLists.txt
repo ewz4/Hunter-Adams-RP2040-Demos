@@ -22,7 +22,8 @@ pico_sdk_init()
 # add_subdirectory(Networking)
 # add_subdirectory(PWM)
 # add_subdirectory(Final_Project)
-add_subdirectory(Music_Animation)
+# add_subdirectory(Music_Animation)
+add_subdirectory(VGA_8bit_demo)
 
 add_compile_options(-Wall
         -Wno-format          # int != int32_t as far as the compiler is concerned because gcc has int32_t as long int
