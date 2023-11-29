@@ -138,6 +138,26 @@ fix15 predator_turnfactor = float2fix15(0.5);
 uint8_t mood = 0;
 volatile float Splash_Color = 0;
 
+// Tiles
+struct tile
+{
+    // Current state of predators
+    uint8_t num_boids;
+    uint32_t red_total;
+    uint32_t green_total;
+    uint32_t blue_total;
+};
+
+#define MAX_TILES 786
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 240
+uint8_t width = 32;  // tiles wide
+uint8_t height = 24; // tiles wide
+uint16_t total_tiles = width * height;
+uint8_t tile_side = SCREEN_WIDTH / width;
+
+struct predator tiles[MAX_TILES];
+
 // Margin Size
 // uint16_t x_margin_left_box = 100;
 // uint16_t x_margin_right_box = 540;
@@ -410,6 +430,16 @@ void boid_algo_update(uint16_t curr_boid, uint8_t flock_type)
     // Update position using velocity
     curr_flock[curr_boid].x = curr_flock[curr_boid].x + curr_flock[curr_boid].vx;
     curr_flock[curr_boid].y = curr_flock[curr_boid].y + curr_flock[curr_boid].vy;
+
+    // Update tile
+    uint16_t row = fix2int15(curr_flock[curr_boid].y) / tile_side;
+    uint16_t col = fix2int15(curr_flock[curr_boid].x) / tile_side;
+    uint16_t index = row * width + col;
+
+    tiles[index].num_boids++;
+    tiles[index].red_total += curr_flock[curr_boid].red;
+    tiles[index].green_total += curr_flock[curr_boid].green;
+    tiles[index].blue_total += curr_flock[curr_boid].blue;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -472,6 +502,27 @@ void predator_algo(uint8_t current_predator)
     if (predators[current_predator].alive_counter > 100)
     {
         predators[current_predator].alive_counter = 0;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void drawTiles()
+{
+    // Consider moving this so each tile has its x and y coordiante
+    for (uint16_t i = 0; i < total_tiles; i++)
+    {
+        // Do color processing
+        uint16_t row = i / width;
+        uint16_t col = i - row;
+        uint16_t x = col * tile_side;
+        uint16_t y = row * tile_side;
+
+        if (tiles[i].num_boids > 0)
+        {
+            fillRect(x, y, tile_side, tile_side, WHITE);
+        }
     }
 }
 
@@ -724,7 +775,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 Splash_Color = atof(arg1);
             }
-        } 
+        }
         else
             printf("Huh?\n\r");
     } // END WHILE(1)
@@ -874,6 +925,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 5, WHITE);
             }
         }
+
+        drawTiles();
 
         if (counter > 30)
         {
