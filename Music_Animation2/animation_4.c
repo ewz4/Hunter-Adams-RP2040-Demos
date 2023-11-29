@@ -133,8 +133,8 @@ fix15 percent_diff = 0;
 fix15 percent_diff_threshold = float2fix15(0.01);
 fix15 old_note_mag = float2fix15(0.001);
 fix15 freq_calc = float2fix15(Fs / NUM_SAMPLES);
-fix15 percentage_high_note_diff = float2fix15(0.25);
-fix15 mag_threshold = float2fix15(0.5);
+fix15 percentage_high_note_diff = float2fix15(0.05);
+fix15 mag_threshold = int2fix15(1);
 volatile bool turn_on_predator = false;
 int size_circle = 2;
 
@@ -634,16 +634,16 @@ void boid_algo_init_calc(uint16_t curr_boid)
     // overall_mood is a hue
     difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
     if (difference_from_overall_color > 0)
-        boid_flock[curr_boid].hue -= 5;
+        boid_flock[curr_boid].hue += 1;
     else if (difference_from_overall_color < 0)
-        boid_flock[curr_boid].hue += 5;
+        boid_flock[curr_boid].hue -= 1;
 
     // overall_mood moves to 0.5 saturation value
     float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
     if (diff_from_overall_saturation > 0)
-        boid_flock[curr_boid].sat -= 0.01;
-    else if (diff_from_overall_saturation < 0)
         boid_flock[curr_boid].sat += 0.01;
+    else if (diff_from_overall_saturation < 0)
+        boid_flock[curr_boid].sat -= 0.01;
 
     if (turn_on_predator)
     {
@@ -674,7 +674,7 @@ void boid_algo_init_calc(uint16_t curr_boid)
                 boid_flock[curr_boid].num_predators++;
             }
         }
-        boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / boid_flock[curr_boid].num_predators;
+        // boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / (int)boid_flock[curr_boid].num_predators;
         boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
     }
 
@@ -1162,8 +1162,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
             color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
 
-            // printf("Amp = ");
-            // printf("%d\n\r", current_loudest_3_notes[0].mag);
+            printf("boid hue = %d\n\r", boid_flock[current_boid].hue);
+
 
             fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
 
@@ -1314,16 +1314,16 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
             turn_on_predator = false;
             curr_N_predators = 0;
         }
-        if (abs(percent_diff) > percent_diff_threshold)
+        else if (abs(percent_diff) > percent_diff_threshold)
         { // These are two different situations
             old_note_mag = current_loudest_3_notes[0].mag;
             current_loudest_3_notes[0].freq = multfix15(current_loudest_3_notes[0].freq, freq_calc);
             current_loudest_3_notes[1].freq = multfix15(current_loudest_3_notes[1].freq, freq_calc);
             current_loudest_3_notes[2].freq = multfix15(current_loudest_3_notes[2].freq, freq_calc);
-            // curr_N_predators = music_stuff();
-            curr_N_predators = 0;
-            // turn_on_predator = true;
-            turn_on_predator = false;
+            curr_N_predators = music_stuff();
+            // curr_N_predators = 1;
+            turn_on_predator = true;
+            // turn_on_predator = false;
 
             // for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
             // {
