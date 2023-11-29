@@ -120,7 +120,7 @@ static PT_THREAD (protothread_graphics(struct pt *pt)) {
 
     fillRect(50,100,20,20, hsv2rgb(0,1,1));
 
-     char video_buffer[32];
+    char video_buffer[32];
     setTextColor2(WHITE, BLACK) ;
     setTextSize(1) ;
     int x=0 ;

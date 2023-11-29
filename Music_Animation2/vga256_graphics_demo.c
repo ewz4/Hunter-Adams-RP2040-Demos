@@ -57,30 +57,30 @@ char rgb_box ;
 // ==================================================
 // === convert HSV to rgb value
 // ==================================================
-char hsv2rgb(float h, float s, float v){
-    float C, X, m, rp, gp, bp ;
-    unsigned char r, g, b ;
-    // hsv to rgb conversion from
-    // http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
-    C = v * s;
-    //X = C * (1 - abs((int)(h/60)%2 - 1));
-    // (h/60) mod 2  = (h/60 - (int)(h/60))
-    X = C * (1.0 - fabsf(fmodf(h/60.0, 2.0) - 1.));
-    m = v - C;
-    if      ((0<=h) && (h<60))   { rp = C; gp = X; bp = 0;}
-    else if ((60<=h) && (h<120)) { rp = X; gp = C; bp = 0;}
-    else if ((120<=h) && (h<180)){ rp = 0; gp = C; bp = X;}
-    else if ((180<=h) && (h<240)){ rp = 0; gp = X; bp = C;}
-    else if ((240<=h) && (h<300)){ rp = X; gp = 0; bp = C;}
-    else if ((300<=h) && (h<360)){ rp = C; gp = 0; bp = X;}
-    else                         { rp = 0; gp = 0; bp = 0;}
-    // scale to 8-bit rgb
-    r = (unsigned char)((rp+m)*7) ;
-    g = (unsigned char)((gp+m)*7) ;
-    b = (unsigned char)((bp+m)*3) ;
-     //       
-    return rgb(r,g,b) ;
-}
+// char hsv2rgb(float h, float s, float v){
+//     float C, X, m, rp, gp, bp ;
+//     unsigned char r, g, b ;
+//     // hsv to rgb conversion from
+//     // http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
+//     C = v * s;
+//     //X = C * (1 - abs((int)(h/60)%2 - 1));
+//     // (h/60) mod 2  = (h/60 - (int)(h/60))
+//     X = C * (1.0 - fabsf(fmodf(h/60.0, 2.0) - 1.));
+//     m = v - C;
+//     if      ((0<=h) && (h<60))   { rp = C; gp = X; bp = 0;}
+//     else if ((60<=h) && (h<120)) { rp = X; gp = C; bp = 0;}
+//     else if ((120<=h) && (h<180)){ rp = 0; gp = C; bp = X;}
+//     else if ((180<=h) && (h<240)){ rp = 0; gp = X; bp = C;}
+//     else if ((240<=h) && (h<300)){ rp = X; gp = 0; bp = C;}
+//     else if ((300<=h) && (h<360)){ rp = C; gp = 0; bp = X;}
+//     else                         { rp = 0; gp = 0; bp = 0;}
+//     // scale to 8-bit rgb
+//     r = (unsigned char)((rp+m)*7) ;
+//     g = (unsigned char)((gp+m)*7) ;
+//     b = (unsigned char)((bp+m)*3) ;
+//      //       
+//     return rgb(r,g,b) ;
+// }
 
 // ==================================================
 // === graphics demo -- RUNNING on core 0

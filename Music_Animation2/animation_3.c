@@ -25,9 +25,6 @@
 // VGA graphics library
 #include "vga256_graphics.h"
 
-// protothreads header
-#include "pt_cornell_rp2040_v1_1_1.h"
-
 // Include standard libraries
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +46,9 @@
 #include "hardware/irq.h"
 #include "hardware/sync.h"
 #include "hardware/timer.h"
+
+// protothreads header
+#include "pt_cornell_rp2040_v1_1_1.h"
 
 // The fixed point macros
 typedef signed int fix15;
@@ -141,10 +141,10 @@ bool turn_on_predator = false;
 //////////////// Animation Variables ////////////////////
 
 // Wall detection
-#define hitBottom(b) (b > int2fix15(330))
-#define hitTop(b) (b < int2fix15(150))
-#define hitLeft(a) (a < int2fix15(150))
-#define hitRight(a) (a > int2fix15(490))
+#define hitBottom(b) (b > int2fix15(180))
+#define hitTop(b) (b < int2fix15(60))
+#define hitLeft(a) (a < int2fix15(60))
+#define hitRight(a) (a > int2fix15(260))
 
 // uS per frame
 #define FRAME_RATE 33000
@@ -158,8 +158,8 @@ struct boid
     fix15 vx;
     fix15 vy;
     int hue;
-    float value;
-    float saturation;
+    float val;
+    float sat;
 
     // Variables of current state needed for boid algo calculation
     fix15 close_dx;
@@ -193,8 +193,8 @@ struct predator
 
 // Initializing boids
 #define N_flocks 3
-#define N_boids 600              // Max number of boids per flock
-uint16_t curr_N_boids = 200;     // Current number of boids
+#define N_boids 200              // Max number of boids per flock
+uint16_t curr_N_boids = 100;     // Current number of boids
 struct boid boid_flock[N_boids]; // Avoids paper flock
 
 // Initializing boid parameters
@@ -212,7 +212,7 @@ fix15 predator_flock_range = int2fix15(5);
 fix15 predator_flock_turnfactor = float2fix15(0.3);
 fix15 maxspeed_predators = int2fix15(10);
 fix15 minspeed_predators = int2fix15(5);
-fix15 turnfactor_predators = int2fix15(0.5);
+fix15 turnfactor_predators = float2fix15(0.5);
 
 // Initializing predator s
 #define N_predators 5         // Total # of possible predators
@@ -226,6 +226,9 @@ fix15 predator_turnfactor = float2fix15(0.5);
 // Mood
 uint8_t mood = 0;
 volatile float Splash_Color = 0;
+int animate_mood_1;
+int animate_mood_2;
+int animate_mood_3;
 
 // Margin Size
 // uint16_t x_margin_left_box = 100;
@@ -256,69 +259,69 @@ volatile float Splash_Color = 0;
 // interactive color
 char rgb_box;
 
-// ==================================================
-// === convert HSV to rgb value
-// ==================================================
-char hsv2rgb(float h, float s, float v)
-{
-    float C, X, m, rp, gp, bp;
-    unsigned char r, g, b;
-    // hsv to rgb conversion from
-    // http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
-    C = v * s;
-    // X = C * (1 - abs((int)(h/60)%2 - 1));
-    //  (h/60) mod 2  = (h/60 - (int)(h/60))
-    X = C * (1.0 - fabsf(fmodf(h / 60.0, 2.0) - 1.));
-    m = v - C;
-    if ((0 <= h) && (h < 60))
-    {
-        rp = C;
-        gp = X;
-        bp = 0;
-    }
-    else if ((60 <= h) && (h < 120))
-    {
-        rp = X;
-        gp = C;
-        bp = 0;
-    }
-    else if ((120 <= h) && (h < 180))
-    {
-        rp = 0;
-        gp = C;
-        bp = X;
-    }
-    else if ((180 <= h) && (h < 240))
-    {
-        rp = 0;
-        gp = X;
-        bp = C;
-    }
-    else if ((240 <= h) && (h < 300))
-    {
-        rp = X;
-        gp = 0;
-        bp = C;
-    }
-    else if ((300 <= h) && (h < 360))
-    {
-        rp = C;
-        gp = 0;
-        bp = X;
-    }
-    else
-    {
-        rp = 0;
-        gp = 0;
-        bp = 0;
-    }
-    // scale to 8-bit rgb
-    r = (unsigned char)((rp + m) * 7);
-    g = (unsigned char)((gp + m) * 7);
-    b = (unsigned char)((bp + m) * 3);
-    //
-    return rgb(r, g, b);
-}
+// // ==================================================
+// // === convert HSV to rgb value
+// // ==================================================
+// char hsv2rgb(float h, float s, float v)
+// {
+//     float C, X, m, rp, gp, bp;
+//     unsigned char r, g, b;
+//     // hsv to rgb conversion from
+//     // http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
+//     C = v * s;
+//     // X = C * (1 - abs((int)(h/60)%2 - 1));
+//     //  (h/60) mod 2  = (h/60 - (int)(h/60))
+//     X = C * (1.0 - fabsf(fmodf(h / 60.0, 2.0) - 1.));
+//     m = v - C;
+//     if ((0 <= h) && (h < 60))
+//     {
+//         rp = C;
+//         gp = X;
+//         bp = 0;
+//     }
+//     else if ((60 <= h) && (h < 120))
+//     {
+//         rp = X;
+//         gp = C;
+//         bp = 0;
+//     }
+//     else if ((120 <= h) && (h < 180))
+//     {
+//         rp = 0;
+//         gp = C;
+//         bp = X;
+//     }
+//     else if ((180 <= h) && (h < 240))
+//     {
+//         rp = 0;
+//         gp = X;
+//         bp = C;
+//     }
+//     else if ((240 <= h) && (h < 300))
+//     {
+//         rp = X;
+//         gp = 0;
+//         bp = C;
+//     }
+//     else if ((300 <= h) && (h < 360))
+//     {
+//         rp = C;
+//         gp = 0;
+//         bp = X;
+//     }
+//     else
+//     {
+//         rp = 0;
+//         gp = 0;
+//         bp = 0;
+//     }
+//     // scale to 8-bit rgb
+//     r = (unsigned char)((rp + m) * 7);
+//     g = (unsigned char)((gp + m) * 7);
+//     b = (unsigned char)((bp + m) * 3);
+//     //
+//     return rgb(r, g, b);
+// }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -371,7 +374,7 @@ int identify_music_mood(int cents)
     return color_degree;
 }
 
-void music_stuff()
+int music_stuff()
 {
 
     fix15 percentage_high_note_2;
@@ -382,9 +385,6 @@ void music_stuff()
     fix15 bottom_note = 0;
     int interval_1;
     int interval_2;
-    int animate_mood_1;
-    int animate_mood_2;
-    int animate_mood_3;
     int sum_mood = 0;
     int num_new_colors;
 
@@ -405,8 +405,8 @@ void music_stuff()
         }
         interval_1 = solve_for_cents(bottom_note, middle_note);
         interval_2 = solve_for_cents(middle_note, top_note);
-        animate_mood_2 = identify_music_mood(interval_low);
-        animate_mood_3 = identify_music_mood(interval_high);
+        animate_mood_2 = identify_music_mood(interval_1);
+        animate_mood_3 = identify_music_mood(interval_2);
         num_new_colors = 3;
     }
     else if (abs(percentage_high_note_2) < percentage_high_note_diff)
@@ -585,13 +585,12 @@ void spawn(fix15 *x, fix15 *y, fix15 *vx, fix15 *vy)
 // Boid_algo initial calculation for ith boid
 void boid_algo_init_calc(uint16_t curr_boid)
 {
-    struct boid *curr_flock = boid_flock;
     int difference_from_overall_color;
 
     for (uint16_t i = curr_boid + 1; i < curr_N_boids; i++)
     {
-        fix15 dx_i = curr_flock[curr_boid].x - curr_flock[i].x;
-        fix15 dy_i = curr_flock[curr_boid].y - curr_flock[i].y;
+        fix15 dx_i = boid_flock[curr_boid].x - boid_flock[i].x;
+        fix15 dy_i = boid_flock[curr_boid].y - boid_flock[i].y;
 
         // Are both those differences less than the visual range?
         if (absfix15(dx_i) < visualRange && absfix15(dy_i) < visualRange)
@@ -600,79 +599,79 @@ void boid_algo_init_calc(uint16_t curr_boid)
             if (absfix15(dx_i) < protectedRange && absfix15(dy_i) < protectedRange)
             {
                 // If so, add dx and dy to close_dx and close_dy for current boid
-                curr_flock[curr_boid].close_dx += dx_i;
-                curr_flock[curr_boid].close_dy += dy_i;
+                boid_flock[curr_boid].close_dx += dx_i;
+                boid_flock[curr_boid].close_dy += dy_i;
 
                 // If so, subtract dx and dy to close_dx and close_dy for other boid
-                curr_flock[i].close_dx -= dx_i;
-                curr_flock[i].close_dy -= dy_i;
+                boid_flock[i].close_dx -= dx_i;
+                boid_flock[i].close_dy -= dy_i;
             }
             else // Boid is in the visual range
             {
                 // Add other boid's x/y-coord and x/y vel to accumulator variables to boids
-                curr_flock[curr_boid].xpos_avg += curr_flock[i].x;
-                curr_flock[curr_boid].ypos_avg += curr_flock[i].y;
-                curr_flock[curr_boid].xvel_avg += curr_flock[i].vx;
-                curr_flock[curr_boid].yvel_avg += curr_flock[i].vy;
+                boid_flock[curr_boid].xpos_avg += boid_flock[i].x;
+                boid_flock[curr_boid].ypos_avg += boid_flock[i].y;
+                boid_flock[curr_boid].xvel_avg += boid_flock[i].vx;
+                boid_flock[curr_boid].yvel_avg += boid_flock[i].vy;
 
                 // Add boid's x/y-coord and x/y vel to accumulator variables to other boids
-                curr_flock[i].xpos_avg += curr_flock[curr_boid].x;
-                curr_flock[i].ypos_avg += curr_flock[curr_boid].y;
-                curr_flock[i].xvel_avg += curr_flock[curr_boid].vx;
-                curr_flock[i].yvel_avg += curr_flock[curr_boid].vy;
+                boid_flock[i].xpos_avg += boid_flock[curr_boid].x;
+                boid_flock[i].ypos_avg += boid_flock[curr_boid].y;
+                boid_flock[i].xvel_avg += boid_flock[curr_boid].vx;
+                boid_flock[i].yvel_avg += boid_flock[curr_boid].vy;
 
                 // Increment number of boids within visual range to both the current and other boid
-                curr_flock[curr_boid].neighboring_boids++;
-                curr_flock[i].neighboring_boids++;
+                boid_flock[curr_boid].neighboring_boids++;
+                boid_flock[i].neighboring_boids++;
             }
         }
     }
 
     // overall_mood is a hue
-    difference_from_overall_color = overall_mood - curr_flock[curr_boid].hue;
+    difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
     if (difference_from_overall_color > 0)
-        curr_flock[curr_boid].hue -= 5;
+        boid_flock[curr_boid].hue -= 5;
     else
-        curr_flock[curr_boid].hue += 5;
+        boid_flock[curr_boid].hue += 5;
 
     // overall_mood moves to 0.5 saturation value
-    diff_from_overall_saturation = 0.5 - curr_flock[curr_boid].sat; // float
+    float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
     if (diff_from_overall_saturation > 0)
-        curr_flock[curr_boid].sat -= 0.01;
+        boid_flock[curr_boid].sat -= 0.01;
     else
-        curr_flock[curr_boid].sat += 0.01;
+        boid_flock[curr_boid].sat += 0.01;
 
     if (turn_on_predator)
     {
         for (uint8_t i = 0; i < curr_N_predators; i++)
         {
             // Compute the differences in x and y coordinates
-            fix15 dx_p = curr_flock[curr_boid].x - predators[i].x;
-            fix15 dy_p = curr_flock[curr_boid].y - predators[i].y;
+            fix15 dx_p = boid_flock[curr_boid].x - predators[i].x;
+            fix15 dy_p = boid_flock[curr_boid].y - predators[i].y;
 
             // Are both those differences less than the predatory range?
             if (absfix15(dx_p) < predator_range && absfix15(dx_p) < predator_range)
             {
-                // curr_flock[curr_boid].predator_dx += curr_flock[curr_boid].x - predators[i].x;
-                // curr_flock[curr_boid].predator_dy += curr_flock[curr_boid].y - predators[i].y;
+                // boid_flock[curr_boid].predator_dx += boid_flock[curr_boid].x - predators[i].x;
+                // boid_flock[curr_boid].predator_dy += boid_flock[curr_boid].y - predators[i].y;
 
                 if (i = 0)
                 {
-                    curr_flock[curr_boid].hue = predators[i].hue;
-                    curr_flock[curr_boid].hue = predators[i].sat;
+                    boid_flock[curr_boid].hue = predators[i].hue;
+                    boid_flock[curr_boid].hue = predators[i].sat;
                 }
                 else
                 {
-                    curr_flock[curr_boid].hue += predators[i].hue;
-                    curr_flock[curr_boid].sat += predators[i].sat;
+                    boid_flock[curr_boid].hue += predators[i].hue;
+                    boid_flock[curr_boid].sat += predators[i].sat;
                 }
 
                 // Increment the number of predators in the boid's predatory range
-                curr_flock[curr_boid].num_predators++;
+                boid_flock[curr_boid].num_predators++;
             }
         }
-        curr_flock[curr_boid].hue = curr_flock[curr_boid].hue / curr_flock[curr_boid].num_predators;
-        curr_flock[curr_boid].sat = curr_flock[curr_boid].sat / (float)curr_flock[curr_boid].num_predators;
+        boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / boid_flock[curr_boid].num_predators;
+        boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
     }
 }
 
@@ -682,77 +681,75 @@ void boid_algo_init_calc(uint16_t curr_boid)
 // Update the x and y positions of each boid
 void boid_algo_update(uint16_t curr_boid)
 {
-    struct boid *curr_flock = boid_flock;
-
     // If there were any boids in the visual range
-    if (curr_flock[curr_boid].neighboring_boids > 0)
+    if (boid_flock[curr_boid].neighboring_boids > 0)
     {
         // Divide accumulator variables by number of boids in visual range
-        fix15 neighboring_boids_div = int2fix15(curr_flock[curr_boid].neighboring_boids);
-        fix15 fin_xpos_avg = divfix(curr_flock[curr_boid].xpos_avg, neighboring_boids_div);
-        fix15 fin_ypos_avg = divfix(curr_flock[curr_boid].ypos_avg, neighboring_boids_div);
-        fix15 fin_xvel_avg = divfix(curr_flock[curr_boid].xvel_avg, neighboring_boids_div);
-        fix15 fin_yvel_avg = divfix(curr_flock[curr_boid].yvel_avg, neighboring_boids_div);
+        fix15 neighboring_boids_div = int2fix15(boid_flock[curr_boid].neighboring_boids);
+        fix15 fin_xpos_avg = divfix(boid_flock[curr_boid].xpos_avg, neighboring_boids_div);
+        fix15 fin_ypos_avg = divfix(boid_flock[curr_boid].ypos_avg, neighboring_boids_div);
+        fix15 fin_xvel_avg = divfix(boid_flock[curr_boid].xvel_avg, neighboring_boids_div);
+        fix15 fin_yvel_avg = divfix(boid_flock[curr_boid].yvel_avg, neighboring_boids_div);
 
         // Add the centering/matching contributions to velocity
-        curr_flock[curr_boid].vx = (curr_flock[curr_boid].vx +
-                                    multfix15(fin_xpos_avg - curr_flock[curr_boid].x, centeringfactor) +
-                                    multfix15(fin_xvel_avg - curr_flock[curr_boid].vx, matchingfactor));
-        curr_flock[curr_boid].vy = (curr_flock[curr_boid].vy +
-                                    multfix15(fin_ypos_avg - curr_flock[curr_boid].y, centeringfactor) +
-                                    multfix15(fin_yvel_avg - curr_flock[curr_boid].vy, matchingfactor));
+        boid_flock[curr_boid].vx = (boid_flock[curr_boid].vx +
+                                    multfix15(fin_xpos_avg - boid_flock[curr_boid].x, centeringfactor) +
+                                    multfix15(fin_xvel_avg - boid_flock[curr_boid].vx, matchingfactor));
+        boid_flock[curr_boid].vy = (boid_flock[curr_boid].vy +
+                                    multfix15(fin_ypos_avg - boid_flock[curr_boid].y, centeringfactor) +
+                                    multfix15(fin_yvel_avg - boid_flock[curr_boid].vy, matchingfactor));
     }
 
     // Add the avoidance contribution to velocity
-    curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + multfix15(curr_flock[curr_boid].close_dx, avoidfactor);
-    curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + multfix15(curr_flock[curr_boid].close_dy, avoidfactor);
+    boid_flock[curr_boid].vx = boid_flock[curr_boid].vx + multfix15(boid_flock[curr_boid].close_dx, avoidfactor);
+    boid_flock[curr_boid].vy = boid_flock[curr_boid].vy + multfix15(boid_flock[curr_boid].close_dy, avoidfactor);
 
     // Add box arena contribution to velocity
-    if (hitTop(curr_flock[curr_boid].y))
+    if (hitTop(boid_flock[curr_boid].y))
     {
-        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + turnfactor;
+        boid_flock[curr_boid].vy = boid_flock[curr_boid].vy + turnfactor;
     }
-    else if (hitBottom(curr_flock[curr_boid].y))
+    else if (hitBottom(boid_flock[curr_boid].y))
     {
-        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy - turnfactor;
+        boid_flock[curr_boid].vy = boid_flock[curr_boid].vy - turnfactor;
     }
 
-    if (hitLeft(curr_flock[curr_boid].x))
+    if (hitLeft(boid_flock[curr_boid].x))
     {
-        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + turnfactor;
+        boid_flock[curr_boid].vx = boid_flock[curr_boid].vx + turnfactor;
     }
-    else if (hitRight(curr_flock[curr_boid].x))
+    else if (hitRight(boid_flock[curr_boid].x))
     {
-        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx - turnfactor;
+        boid_flock[curr_boid].vx = boid_flock[curr_boid].vx - turnfactor;
     }
 
     fix15 speed;
     // Calculate the boid's speed
     // Calculated using the alpha beta max algorithm
     // speed = 1*v_max + 1/4 * v_min --> shift by 2 instead of multiply 0.25
-    if (absfix15(curr_flock[curr_boid].vx) < absfix15(curr_flock[curr_boid].vy))
+    if (absfix15(boid_flock[curr_boid].vx) < absfix15(boid_flock[curr_boid].vy))
     {
-        speed = absfix15(curr_flock[curr_boid].vy) + (absfix15(curr_flock[curr_boid].vx) >> 2);
+        speed = absfix15(boid_flock[curr_boid].vy) + (absfix15(boid_flock[curr_boid].vx) >> 2);
     }
     else
     {
-        speed = absfix15(curr_flock[curr_boid].vx) + (absfix15(curr_flock[curr_boid].vy) >> 2);
+        speed = absfix15(boid_flock[curr_boid].vx) + (absfix15(boid_flock[curr_boid].vy) >> 2);
     }
 
     if (speed > maxspeed)
     {
-        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx - (curr_flock[curr_boid].vx >> 2);
-        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy - (curr_flock[curr_boid].vy >> 2);
+        boid_flock[curr_boid].vx = boid_flock[curr_boid].vx - (boid_flock[curr_boid].vx >> 2);
+        boid_flock[curr_boid].vy = boid_flock[curr_boid].vy - (boid_flock[curr_boid].vy >> 2);
     }
     if (speed < minspeed)
     {
-        curr_flock[curr_boid].vx = curr_flock[curr_boid].vx + (curr_flock[curr_boid].vx >> 2);
-        curr_flock[curr_boid].vy = curr_flock[curr_boid].vy + (curr_flock[curr_boid].vy >> 2);
+        boid_flock[curr_boid].vx = boid_flock[curr_boid].vx + (boid_flock[curr_boid].vx >> 2);
+        boid_flock[curr_boid].vy = boid_flock[curr_boid].vy + (boid_flock[curr_boid].vy >> 2);
     }
 
     // Update position using velocity
-    curr_flock[curr_boid].x = curr_flock[curr_boid].x + curr_flock[curr_boid].vx;
-    curr_flock[curr_boid].y = curr_flock[curr_boid].y + curr_flock[curr_boid].vy;
+    boid_flock[curr_boid].x = boid_flock[curr_boid].x + boid_flock[curr_boid].vx;
+    boid_flock[curr_boid].y = boid_flock[curr_boid].y + boid_flock[curr_boid].vy;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -856,7 +853,6 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             printf("matchingfactor <float>\n\r");
             printf("numberBoids <int>\n\r");
             printf("numberPredators <int>\n\r");
-            printf("numberBoids <int> 0\n\r");
             printf("maxspeed <int>\n\r");
             printf("minspeed <int>\n\r");
             printf("predatorFlockRange <int>\n\r");
@@ -922,9 +918,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
             {
                 for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
-                    fillCircle(fix2int15(rock_flock[current_boid].x), fix2int15(rock_flock[current_boid].y), 5, BLACK);
-                    fillCircle(fix2int15(paper_flock[current_boid].x), fix2int15(paper_flock[current_boid].y), 5, BLACK);
-                    fillCircle(fix2int15(scissor_flock[current_boid].x), fix2int15(scissor_flock[current_boid].y), 5, BLACK);
+                    fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), 5, BLACK);
                 }
 
                 for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
@@ -938,9 +932,7 @@ static PT_THREAD(protothread_serial(struct pt *pt))
                 for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
                 {
                     // All boid properties are zerod out from other thread
-                    spawn(&rock_flock[current_boid].x, &rock_flock[current_boid].y, &rock_flock[current_boid].vx, &rock_flock[current_boid].vy);
-                    spawn(&paper_flock[current_boid].x, &paper_flock[current_boid].y, &paper_flock[current_boid].vx, &paper_flock[current_boid].vy);
-                    spawn(&scissor_flock[current_boid].x, &scissor_flock[current_boid].y, &scissor_flock[current_boid].vx, &scissor_flock[current_boid].vy);
+                    spawn(&boid_flock[current_boid].x, &boid_flock[current_boid].y, &boid_flock[current_boid].vx, &boid_flock[current_boid].vy);
                 }
 
                 for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
@@ -1120,32 +1112,34 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
+            printf("Drawing boid ");
+            printf("%d\n", current_boid);
             // Erase boid
             fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), 5, BLACK);
 
             // Update boid state
             boid_algo_update(current_boid);
 
-            color_to_draw = hsv2rgb(boid_flock[current_boid].hue, boid_flock[current_boid].sat, boid_flock[current_boid].val)
+            color_to_draw = hsv2rgb(boid_flock[current_boid].hue, boid_flock[current_boid].sat, boid_flock[current_boid].val);
 
-                fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), 5, color_to_draw);
+            fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), 5, color_to_draw);
 
             // Set all values needed for boid calculate back to 0
-            curr_flock[current_boid].close_dx = 0;
-            curr_flock[current_boid].close_dy = 0;
-            curr_flock[current_boid].xpos_avg = 0;
-            curr_flock[current_boid].ypos_avg = 0;
-            curr_flock[current_boid].xvel_avg = 0;
-            curr_flock[current_boid].yvel_avg = 0;
-            curr_flock[current_boid].neighboring_boids = 0;
+            boid_flock[current_boid].close_dx = 0;
+            boid_flock[current_boid].close_dy = 0;
+            boid_flock[current_boid].xpos_avg = 0;
+            boid_flock[current_boid].ypos_avg = 0;
+            boid_flock[current_boid].xvel_avg = 0;
+            boid_flock[current_boid].yvel_avg = 0;
+            boid_flock[current_boid].neighboring_boids = 0;
 
-            curr_flock[current_boid].predator_flock_dx = 0;
-            curr_flock[current_boid].predator_flock_dy = 0;
-            curr_flock[current_boid].num_flock_predators = 0;
+            boid_flock[current_boid].predator_flock_dx = 0;
+            boid_flock[current_boid].predator_flock_dy = 0;
+            boid_flock[current_boid].num_flock_predators = 0;
 
-            curr_flock[current_boid].predator_dx = 0;
-            curr_flock[current_boid].predator_dy = 0;
-            curr_flock[current_boid].num_predators = 0;
+            boid_flock[current_boid].predator_dx = 0;
+            boid_flock[current_boid].predator_dy = 0;
+            boid_flock[current_boid].num_predators = 0;
         }
 
         if (counter > 30)
