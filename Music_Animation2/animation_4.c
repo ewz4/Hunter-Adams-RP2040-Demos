@@ -84,7 +84,7 @@ typedef signed int fix15;
 // ADC clock rate (unmutable!)
 #define ADCCLK 48000000.0
 
-fix15 max_fr ;           // temporary variable for max freq calculation
+fix15 max_fr; // temporary variable for max freq calculation
 
 // DMA channels for sampling ADC (VGA driver uses 0 and 1)
 int sample_chan = 4;
@@ -218,7 +218,7 @@ fix15 minspeed_predators = int2fix15(5);
 fix15 turnfactor_predators = float2fix15(0.5);
 
 // Initializing predator s
-#define N_predators 5         // Total # of possible predators
+#define N_predators 5                  // Total # of possible predators
 volatile uint8_t curr_N_predators = 5; // Current # of predators
 struct predator predators[N_predators];
 
@@ -659,16 +659,19 @@ void boid_algo_init_calc(uint16_t curr_boid)
                 // boid_flock[curr_boid].predator_dx += boid_flock[curr_boid].x - predators[i].x;
                 // boid_flock[curr_boid].predator_dy += boid_flock[curr_boid].y - predators[i].y;
 
-                if (i = 0)
-                {
-                    boid_flock[curr_boid].hue = predators[i].hue;
-                    boid_flock[curr_boid].sat = predators[i].sat;
-                }
-                else
-                {
-                    boid_flock[curr_boid].hue += predators[i].hue;
-                    boid_flock[curr_boid].sat += predators[i].sat;
-                }
+                boid_flock[curr_boid].hue = predators[i].hue;
+                boid_flock[curr_boid].sat = predators[i].sat;
+
+                // if (i = 0)
+                // {
+                //     boid_flock[curr_boid].hue = predators[i].hue;
+                //     boid_flock[curr_boid].sat = predators[i].sat;
+                // }
+                // else
+                // {
+                //     boid_flock[curr_boid].hue += predators[i].hue;
+                //     boid_flock[curr_boid].sat += predators[i].sat;
+                // }
 
                 // Increment the number of predators in the boid's predatory range
                 boid_flock[curr_boid].num_predators++;
@@ -1320,10 +1323,10 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
             current_loudest_3_notes[0].freq = multfix15(current_loudest_3_notes[0].freq, freq_calc);
             current_loudest_3_notes[1].freq = multfix15(current_loudest_3_notes[1].freq, freq_calc);
             current_loudest_3_notes[2].freq = multfix15(current_loudest_3_notes[2].freq, freq_calc);
-            // curr_N_predators = music_stuff();
-            curr_N_predators = 0;
-            // turn_on_predator = true;
-            turn_on_predator = false;
+            curr_N_predators = music_stuff();
+            // curr_N_predators = 0;
+            turn_on_predator = true;
+            // turn_on_predator = false;
 
             // for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
             // {
@@ -1354,13 +1357,10 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
 //     static float max_freqency ;     // holds max frequency
 //     static int i ;                  // incrementing loop variable
 
-    
 //     static int max_fr_dex ;         // index of max frequency
-
 
 //     // Will be used to write dynamic text to screen
 //     static char freqtext[40];
-
 
 //     while(1) {
 //         // Wait for NUM_SAMPLES samples to be gathered
@@ -1384,24 +1384,24 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
 //         FFTfix(fr, fi) ;
 
 //         // Find the magnitudes (alpha max plus beta min)
-//         for (int i = 0; i < (NUM_SAMPLES>>1); i++) {  
+//         for (int i = 0; i < (NUM_SAMPLES>>1); i++) {
 //             // get the approx magnitude
-//             fr[i] = abs(fr[i]); 
+//             fr[i] = abs(fr[i]);
 //             fi[i] = abs(fi[i]);
 //             // reuse fr to hold magnitude
-//             fr[i] = max(fr[i], fi[i]) + 
-//                     multfix15(min(fr[i], fi[i]), zero_point_4); 
+//             fr[i] = max(fr[i], fi[i]) +
+//                     multfix15(min(fr[i], fi[i]), zero_point_4);
 
 //             // Keep track of maximum
 //             if (fr[i] > max_fr && i>4) {
 //                 max_fr = fr[i] ;
 //                 max_fr_dex = i ;
-                
+
 //             }
 //         }
 //         // Compute max frequency in Hz
 //         max_freqency = max_fr_dex * (Fs/NUM_SAMPLES) ;
-//         PT_YIELD_usec(100000);        
+//         PT_YIELD_usec(100000);
 //     }
 //     PT_END(pt) ;
 // }
@@ -1433,7 +1433,6 @@ static PT_THREAD(protothread_serial_core_1(struct pt *pt))
     }
     PT_END(pt);
 }
-
 
 // Core 1 entry point (main() for core 1)
 void core1_entry()
@@ -1523,7 +1522,7 @@ void core1_entry()
     // Add and schedule threads
     pt_add_thread(protothread_FFT);
     // pt_add_thread(protothread_serial_core_1);
-    
+
     pt_schedule_start;
 }
 
@@ -1545,12 +1544,9 @@ int main()
     // initialize VGA
     initVGA();
 
-
     // Launch core 1
     multicore_reset_core1();
     multicore_launch_core1(&core1_entry);
-
-    
 
     // add threads
     // pt_add_thread(protothread_serial);
