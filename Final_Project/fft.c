@@ -216,6 +216,9 @@ static PT_THREAD (protothread_fft(struct pt *pt))
     setCursor(250, 0) ;
     setTextSize(2) ;
     writeString("Max freqency:") ;
+    setCursor(450, 0) ;
+    setTextSize(2) ;
+    writeString("Max amplitude:") ;
 
     // Will be used to write dynamic text to screen
     static char freqtext[40];
@@ -261,11 +264,16 @@ static PT_THREAD (protothread_fft(struct pt *pt))
         max_freqency = max_fr_dex * (Fs/NUM_SAMPLES) ;
 
         // Display on VGA
-        fillRect(250, 20, 176, 30, BLACK); // red box
+        fillRect(250, 20, 300, 30, BLACK); // red box
         sprintf(freqtext, "%d", (int)max_freqency) ;
         setCursor(250, 20) ;
         setTextSize(2) ;
         writeString(freqtext) ;
+        sprintf(freqtext, "%d", fix2int15(max_fr)) ;
+        setCursor(450, 20) ;
+        setTextSize(2) ;
+        writeString(freqtext) ;
+        
 
         // Update the FFT display
         for (int i=5; i<(NUM_SAMPLES>>1); i++) {

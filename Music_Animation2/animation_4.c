@@ -84,9 +84,11 @@ typedef signed int fix15;
 // ADC clock rate (unmutable!)
 #define ADCCLK 48000000.0
 
+fix15 max_fr ;           // temporary variable for max freq calculation
+
 // DMA channels for sampling ADC (VGA driver uses 0 and 1)
-int sample_chan = 2;
-int control_chan = 3;
+int sample_chan = 4;
+int control_chan = 5;
 
 // Max and min macros
 #define max(a, b) ((a > b) ? a : b)
@@ -133,7 +135,7 @@ fix15 old_note_mag = float2fix15(0.001);
 fix15 freq_calc = float2fix15(Fs / NUM_SAMPLES);
 fix15 percentage_high_note_diff = float2fix15(0.25);
 fix15 mag_threshold = float2fix15(0.5);
-bool turn_on_predator = false;
+volatile bool turn_on_predator = false;
 int size_circle = 2;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +219,7 @@ fix15 turnfactor_predators = float2fix15(0.5);
 
 // Initializing predator s
 #define N_predators 5         // Total # of possible predators
-uint8_t curr_N_predators = 5; // Current # of predators
+volatile uint8_t curr_N_predators = 5; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
@@ -227,9 +229,9 @@ fix15 predator_turnfactor = float2fix15(0.5);
 // Mood
 uint8_t mood = 0;
 volatile float Splash_Color = 0;
-int animate_mood_1;
-int animate_mood_2;
-int animate_mood_3;
+volatile int animate_mood_1;
+volatile int animate_mood_2;
+volatile int animate_mood_3;
 
 // Margin Size
 // uint16_t x_margin_left_box = 100;
@@ -363,14 +365,15 @@ int identify_music_mood(int cents)
     }
     else if (cents == 1 || cents == 6 || cents == 10 || cents == 11)
     { // Dissonant = Red
-        if (overall_mood > 180)
-        {
-            color_degree = 360;
-        }
-        else
-        {
-            color_degree = 0;
-        }
+        // if (overall_mood > 180)
+        // {
+        //     color_degree = 360;
+        // }
+        // else
+        // {
+        //     color_degree = 0;
+        // }
+        color_degree = 0;
     }
     return color_degree;
 }
@@ -1096,14 +1099,40 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
     while (1)
     {
+        printf("Begin loop\n");
         // Measure time at start of thread
         begin_time = time_us_32();
+        if (turn_on_predator)
+        {
+            if (curr_N_predators == 1)
+            {
+                predators[0].hue = animate_mood_1;
+            }
+            else if (curr_N_predators == 2)
+            {
+                predators[0].hue = animate_mood_1;
+                predators[1].hue = animate_mood_2;
+            }
+            else if (curr_N_predators == 3)
+            {
+                predators[0].hue = animate_mood_1;
+                predators[1].hue = animate_mood_2;
+                predators[2].hue = animate_mood_3;
+            }
+            printf("num preds = %d\n\r", curr_N_predators);
+            printf("hue = %d\n\r", predators[0].hue);
+            printf("hue = %d\n\r", predators[1].hue);
+            printf("hue = %d\n\r", predators[2].hue);
+        }
+        printf("Starting init calc\n");
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
             // update boid's position and velocity
             boid_algo_init_calc(current_boid);
         }
+
+        printf("Finished init calc\n");
 
         for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
         {
@@ -1120,6 +1149,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             // }
         }
 
+        printf("Finished predator algo\n");
+
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
 
@@ -1131,8 +1162,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
             color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
 
-            printf("overall mood = ");
-            printf("%d\n", overall_mood);
+            // printf("Amp = ");
+            // printf("%d\n\r", current_loudest_3_notes[0].mag);
 
             fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
 
@@ -1153,6 +1184,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_flock[current_boid].predator_dy = 0;
             boid_flock[current_boid].num_predators = 0;
         }
+
+        printf("Finished draw\n");
 
         // if (counter > 30)
         // {
@@ -1187,7 +1220,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         // counter++;
 
         // Yield for necessary amount of time
-        PT_YIELD_usec(spare_time);
+        // PT_YIELD_usec(spare_time);
 
         // NEVER exit while
     } // END WHILE(1)
@@ -1216,13 +1249,14 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
     static float max_freqency; // holds max frequency
     static int i;              // incrementing loop variable
 
-    static fix15 max_fr;   // temporary variable for max freq calculation
+    // static fix15 max_fr;   // temporary variable for max freq calculation
     static int max_fr_dex; // index of max frequency
 
     ///////////////////////////////////////////////////////////////////////////
 
     while (1)
     {
+        PT_YIELD_usec(1000);
         ////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////
         // For Music
@@ -1271,11 +1305,14 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
                 current_loudest_3_notes[0].freq = int2fix15(i);
             }
         }
+        // printf("Amp = ");
+        // printf("%d\n\r", current_loudest_3_notes[0].mag);
         percent_diff = divfix(current_loudest_3_notes[0].mag - old_note_mag, old_note_mag);
 
         if (current_loudest_3_notes[0].mag < mag_threshold)
         {
             turn_on_predator = false;
+            curr_N_predators = 0;
         }
         if (abs(percent_diff) > percent_diff_threshold)
         { // These are two different situations
@@ -1283,23 +1320,10 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
             current_loudest_3_notes[0].freq = multfix15(current_loudest_3_notes[0].freq, freq_calc);
             current_loudest_3_notes[1].freq = multfix15(current_loudest_3_notes[1].freq, freq_calc);
             current_loudest_3_notes[2].freq = multfix15(current_loudest_3_notes[2].freq, freq_calc);
-            curr_N_predators = music_stuff();
-            turn_on_predator = true;
-            if (curr_N_predators == 1)
-            {
-                predators[0].hue = animate_mood_1;
-            }
-            else if (curr_N_predators == 2)
-            {
-                predators[0].hue = animate_mood_1;
-                predators[1].hue = animate_mood_2;
-            }
-            else if (curr_N_predators == 3)
-            {
-                predators[0].hue = animate_mood_1;
-                predators[1].hue = animate_mood_2;
-                predators[2].hue = animate_mood_3;
-            }
+            // curr_N_predators = music_stuff();
+            curr_N_predators = 0;
+            // turn_on_predator = true;
+            turn_on_predator = false;
 
             // for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
             // {
@@ -1316,32 +1340,104 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
     PT_END(pt);
 } // fft thread
 
+// static PT_THREAD (protothread_fft(struct pt *pt))
+// {
+//     // Indicate beginning of thread
+//     PT_BEGIN(pt) ;
+//     // Start the ADC channel
+//     dma_start_channel_mask((1u << sample_chan)) ;
+//     // Start the ADC
+//     adc_run(true) ;
+
+//     // Declare some static variables
+//     static int height ;             // for scaling display
+//     static float max_freqency ;     // holds max frequency
+//     static int i ;                  // incrementing loop variable
+
+    
+//     static int max_fr_dex ;         // index of max frequency
+
+
+//     // Will be used to write dynamic text to screen
+//     static char freqtext[40];
+
+
+//     while(1) {
+//         // Wait for NUM_SAMPLES samples to be gathered
+//         // Measure wait time with timer. THIS IS BLOCKING
+//         dma_channel_wait_for_finish_blocking(sample_chan);
+
+//         // Copy/window elements into a fixed-point array
+//         for (i=0; i<NUM_SAMPLES; i++) {
+//             fr[i] = multfix15(int2fix15((int)sample_array[i]), window[i]) ;
+//             fi[i] = (fix15) 0 ;
+//         }
+
+//         // Zero max frequency and max frequency index
+//         max_fr = 0 ;
+//         max_fr_dex = 0 ;
+
+//         // Restart the sample channel, now that we have our copy of the samples
+//         dma_channel_start(control_chan) ;
+
+//         // Compute the FFT
+//         FFTfix(fr, fi) ;
+
+//         // Find the magnitudes (alpha max plus beta min)
+//         for (int i = 0; i < (NUM_SAMPLES>>1); i++) {  
+//             // get the approx magnitude
+//             fr[i] = abs(fr[i]); 
+//             fi[i] = abs(fi[i]);
+//             // reuse fr to hold magnitude
+//             fr[i] = max(fr[i], fi[i]) + 
+//                     multfix15(min(fr[i], fi[i]), zero_point_4); 
+
+//             // Keep track of maximum
+//             if (fr[i] > max_fr && i>4) {
+//                 max_fr = fr[i] ;
+//                 max_fr_dex = i ;
+                
+//             }
+//         }
+//         // Compute max frequency in Hz
+//         max_freqency = max_fr_dex * (Fs/NUM_SAMPLES) ;
+//         PT_YIELD_usec(100000);        
+//     }
+//     PT_END(pt) ;
+// }
+
+// ==================================================
+// === users serial input thread core 1
+// ==================================================
+static PT_THREAD(protothread_serial_core_1(struct pt *pt))
+{
+    PT_BEGIN(pt);
+
+    // wait for 1 sec
+    PT_YIELD_usec(1000000);
+
+    // announce the threader version
+    sprintf(pt_serial_out_buffer, "Protothreads RP2040 v1.0\n\r");
+
+    // non-blocking write
+    serial_write;
+
+    while (1)
+    {
+        // print prompt
+        printf("Amplitude =");
+        printf("%1.2f\n\r", fix2float15(max_fr));
+
+        // spawn a thread to do the non-blocking write
+        PT_YIELD_usec(1000);
+    }
+    PT_END(pt);
+}
+
+
 // Core 1 entry point (main() for core 1)
 void core1_entry()
 {
-    // Add and schedule threads
-    pt_add_thread(protothread_FFT);
-    pt_schedule_start;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ========================================
-// === main
-// ========================================
-// USE ONLY C-sdk library
-int main()
-{
-    // Overclocking
-    // set_sys_clock_khz(250000, true);
-
-    // initialize stio
-    stdio_init_all();
-
-    // initialize VGA
-    initVGA();
-
     /////////////////////////////////////////////////////////////////////////////
     // For Music
 
@@ -1424,12 +1520,40 @@ int main()
     );
 
     /////////////////////////////////////////////////////////////////////////////
+    // Add and schedule threads
+    pt_add_thread(protothread_FFT);
+    // pt_add_thread(protothread_serial_core_1);
+    
+    pt_schedule_start;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ========================================
+// === main
+// ========================================
+// USE ONLY C-sdk library
+int main()
+{
+    // Overclocking
+    // set_sys_clock_khz(250000, true);
+
+    // initialize stio
+    stdio_init_all();
+
+    // initialize VGA
+    initVGA();
+
 
     // Launch core 1
-    multicore_launch_core1(core1_entry);
+    multicore_reset_core1();
+    multicore_launch_core1(&core1_entry);
+
+    
 
     // add threads
-    pt_add_thread(protothread_serial);
+    // pt_add_thread(protothread_serial);
     pt_add_thread(protothread_anim);
 
     // start scheduler
