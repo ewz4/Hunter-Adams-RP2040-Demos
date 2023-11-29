@@ -632,14 +632,14 @@ void boid_algo_init_calc(uint16_t curr_boid)
     difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
     if (difference_from_overall_color > 0)
         boid_flock[curr_boid].hue -= 5;
-    else
+    else if (difference_from_overall_color < 0)
         boid_flock[curr_boid].hue += 5;
 
     // overall_mood moves to 0.5 saturation value
     float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
     if (diff_from_overall_saturation > 0)
         boid_flock[curr_boid].sat -= 0.01;
-    else
+    else if (diff_from_overall_saturation < 0)
         boid_flock[curr_boid].sat += 0.01;
 
     if (turn_on_predator)
@@ -673,8 +673,6 @@ void boid_algo_init_calc(uint16_t curr_boid)
         }
         boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / boid_flock[curr_boid].num_predators;
         boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
-
-        
     }
 
     if (boid_flock[curr_boid].hue >= 360)
@@ -1124,7 +1122,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
-            
+
             // Erase boid
             fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, BLACK);
 
