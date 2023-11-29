@@ -25,7 +25,7 @@ pico_generate_pio_header(music_animation ${CMAKE_CURRENT_LIST_DIR}/rgb2.pio)
 target_sources(music_animation PRIVATE 
 	# vga256_graphics_demo.c
 	# vga256_graphics_image.c
-	animation_3.c
+	animation_4.c
 	vga256_graphics.c
 	)
 
