@@ -133,8 +133,8 @@ fix15 percent_diff = 0;
 fix15 percent_diff_threshold = float2fix15(0.01);
 fix15 old_note_mag = float2fix15(0.001);
 fix15 freq_calc = float2fix15(Fs / NUM_SAMPLES);
-fix15 percentage_high_note_diff = float2fix15(0.25);
-fix15 mag_threshold = float2fix15(0.5);
+fix15 percentage_high_note_diff = float2fix15(0.05);
+fix15 mag_threshold = int2fix15(1);
 volatile bool turn_on_predator = false;
 int size_circle = 2;
 
@@ -197,14 +197,14 @@ struct predator
 // Initializing boids
 #define N_flocks 3
 #define N_boids 200              // Max number of boids per flock
-uint16_t curr_N_boids = 100;     // Current number of boids
+uint16_t curr_N_boids = 200;     // Current number of boids
 struct boid boid_flock[N_boids]; // Avoids paper flock
 
 // Initializing boid parameters
 fix15 turnfactor = float2fix15(0.3);
 fix15 visualRange = int2fix15(40);
 fix15 protectedRange = int2fix15(10);
-fix15 centeringfactor = float2fix15(0.05);
+fix15 centeringfactor = float2fix15(0.0005);
 fix15 avoidfactor = float2fix15(0.1);
 fix15 matchingfactor = float2fix15(0.05);
 fix15 maxspeed = int2fix15(6);
@@ -219,7 +219,7 @@ fix15 turnfactor_predators = float2fix15(0.5);
 
 // Initializing predator s
 #define N_predators 5                  // Total # of possible predators
-volatile uint8_t curr_N_predators = 5; // Current # of predators
+volatile uint8_t curr_N_predators = 3; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
@@ -634,16 +634,16 @@ void boid_algo_init_calc(uint16_t curr_boid)
     // overall_mood is a hue
     difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
     if (difference_from_overall_color > 0)
-        boid_flock[curr_boid].hue -= 5;
+        boid_flock[curr_boid].hue += 1;
     else if (difference_from_overall_color < 0)
-        boid_flock[curr_boid].hue += 5;
+        boid_flock[curr_boid].hue -= 1;
 
     // overall_mood moves to 0.5 saturation value
     float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
     if (diff_from_overall_saturation > 0)
-        boid_flock[curr_boid].sat -= 0.01;
-    else if (diff_from_overall_saturation < 0)
         boid_flock[curr_boid].sat += 0.01;
+    else if (diff_from_overall_saturation < 0)
+        boid_flock[curr_boid].sat -= 0.01;
 
     if (turn_on_predator)
     {
@@ -677,8 +677,12 @@ void boid_algo_init_calc(uint16_t curr_boid)
                 boid_flock[curr_boid].num_predators++;
             }
         }
-        boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / boid_flock[curr_boid].num_predators;
-        boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
+
+        if (boid_flock[curr_boid].num_predators > 0)
+        {
+            boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / (int)boid_flock[curr_boid].num_predators;
+            boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
+        }
     }
 
     if (boid_flock[curr_boid].hue >= 360)
@@ -1078,11 +1082,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     // Variables for maintaining frame rate
     static int begin_time;
     static int spare_time;
-    static int total_time;
-    static int counter = 0;
-    char str1[10];
-    char str2[18];
-    char str3[11];
     char color_to_draw;
 
     // Spawn boid flocks
@@ -1102,7 +1101,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
     while (1)
     {
-        printf("Begin loop\n");
         // Measure time at start of thread
         begin_time = time_us_32();
         if (turn_on_predator)
@@ -1122,20 +1120,17 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 predators[1].hue = animate_mood_2;
                 predators[2].hue = animate_mood_3;
             }
-            printf("num preds = %d\n\r", curr_N_predators);
-            printf("hue = %d\n\r", predators[0].hue);
-            printf("hue = %d\n\r", predators[1].hue);
-            printf("hue = %d\n\r", predators[2].hue);
+            // printf("num preds = %d\n\r", curr_N_predators);
+            // printf("hue = %d\n\r", predators[0].hue);
+            // printf("hue = %d\n\r", predators[1].hue);
+            // printf("hue = %d\n\r", predators[2].hue);
         }
-        printf("Starting init calc\n");
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
             // update boid's position and velocity
             boid_algo_init_calc(current_boid);
         }
-
-        printf("Finished init calc\n");
 
         for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
         {
@@ -1152,8 +1147,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             // }
         }
 
-        printf("Finished predator algo\n");
-
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
 
@@ -1165,8 +1158,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
             color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
 
-            // printf("Amp = ");
-            // printf("%d\n\r", current_loudest_3_notes[0].mag);
+            // printf("boid hue = %d\n\r", boid_flock[current_boid].hue);
 
             fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
 
@@ -1188,42 +1180,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_flock[current_boid].num_predators = 0;
         }
 
-        printf("Finished draw\n");
-
-        // if (counter > 30)
-        // {
-        //     spare_time = FRAME_RATE - (time_us_32() - begin_time);
-
-        //     // Display text on VGA display: Number of boids, frame rate, time elapsed
-
-        //     total_time = time_us_32() / 1000000;
-        //     sprintf(str1, "Time=%d", total_time);
-        //     sprintf(str2, "Spare Time=%d", spare_time);
-        //     sprintf(str3, "Boids=%d", curr_N_boids);
-
-        //     fillRect(0, 0, 150, 70, BLACK);
-        //     setCursor(10, 10);
-        //     setTextColor(WHITE);
-        //     setTextSize(1);
-        //     writeString(str1);
-
-        //     setCursor(10, 25);
-        //     setTextColor(WHITE);
-        //     setTextSize(1);
-        //     writeString(str2);
-
-        //     setCursor(10, 40);
-        //     setTextColor(WHITE);
-        //     setTextSize(1);
-        //     writeString(str3);
-
-        //     counter = 0;
-        // }
-
-        // counter++;
-
-        // Yield for necessary amount of time
-        // PT_YIELD_usec(spare_time);
+        spare_time = FRAME_RATE - (time_us_32() - begin_time);
+        PT_YIELD_usec(spare_time);
 
         // NEVER exit while
     } // END WHILE(1)
@@ -1317,15 +1275,17 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
             turn_on_predator = false;
             curr_N_predators = 0;
         }
-        if (abs(percent_diff) > percent_diff_threshold)
+        else if (abs(percent_diff) > percent_diff_threshold)
         { // These are two different situations
             old_note_mag = current_loudest_3_notes[0].mag;
             current_loudest_3_notes[0].freq = multfix15(current_loudest_3_notes[0].freq, freq_calc);
             current_loudest_3_notes[1].freq = multfix15(current_loudest_3_notes[1].freq, freq_calc);
             current_loudest_3_notes[2].freq = multfix15(current_loudest_3_notes[2].freq, freq_calc);
             curr_N_predators = music_stuff();
-            // curr_N_predators = 0;
+            // curr_N_predators = 1;
             turn_on_predator = true;
+            printf("num predators = %d\n", curr_N_predators);
+
             // turn_on_predator = false;
 
             // for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
@@ -1549,7 +1509,7 @@ int main()
     multicore_launch_core1(&core1_entry);
 
     // add threads
-    // pt_add_thread(protothread_serial);
+    pt_add_thread(protothread_serial);
     pt_add_thread(protothread_anim);
 
     // start scheduler
