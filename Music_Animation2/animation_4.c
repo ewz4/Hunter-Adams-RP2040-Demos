@@ -197,14 +197,14 @@ struct predator
 // Initializing boids
 #define N_flocks 3
 #define N_boids 200              // Max number of boids per flock
-uint16_t curr_N_boids = 100;     // Current number of boids
+uint16_t curr_N_boids = 200;     // Current number of boids
 struct boid boid_flock[N_boids]; // Avoids paper flock
 
 // Initializing boid parameters
 fix15 turnfactor = float2fix15(0.3);
 fix15 visualRange = int2fix15(40);
 fix15 protectedRange = int2fix15(10);
-fix15 centeringfactor = float2fix15(0.05);
+fix15 centeringfactor = float2fix15(0.0005);
 fix15 avoidfactor = float2fix15(0.1);
 fix15 matchingfactor = float2fix15(0.05);
 fix15 maxspeed = int2fix15(6);
@@ -1079,11 +1079,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     // Variables for maintaining frame rate
     static int begin_time;
     static int spare_time;
-    static int total_time;
-    static int counter = 0;
-    char str1[10];
-    char str2[18];
-    char str3[11];
     char color_to_draw;
 
     // Spawn boid flocks
@@ -1103,7 +1098,6 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
     while (1)
     {
-        printf("Begin loop\n");
         // Measure time at start of thread
         begin_time = time_us_32();
         if (turn_on_predator)
@@ -1184,40 +1178,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_flock[current_boid].num_predators = 0;
         }
 
-        // if (counter > 30)
-        // {
-        //     spare_time = FRAME_RATE - (time_us_32() - begin_time);
-
-        //     // Display text on VGA display: Number of boids, frame rate, time elapsed
-
-        //     total_time = time_us_32() / 1000000;
-        //     sprintf(str1, "Time=%d", total_time);
-        //     sprintf(str2, "Spare Time=%d", spare_time);
-        //     sprintf(str3, "Boids=%d", curr_N_boids);
-
-        //     fillRect(0, 0, 150, 70, BLACK);
-        //     setCursor(10, 10);
-        //     setTextColor(WHITE);
-        //     setTextSize(1);
-        //     writeString(str1);
-
-        //     setCursor(10, 25);
-        //     setTextColor(WHITE);
-        //     setTextSize(1);
-        //     writeString(str2);
-
-        //     setCursor(10, 40);
-        //     setTextColor(WHITE);
-        //     setTextSize(1);
-        //     writeString(str3);
-
-        //     counter = 0;
-        // }
-
-        // counter++;
-
-        // Yield for necessary amount of time
-        // PT_YIELD_usec(spare_time);
+        spare_time = FRAME_RATE - (time_us_32() - begin_time);
+        PT_YIELD_usec(spare_time);
 
         // NEVER exit while
     } // END WHILE(1)
@@ -1552,7 +1514,7 @@ int main()
     
 
     // add threads
-    // pt_add_thread(protothread_serial);
+    pt_add_thread(protothread_serial);
     pt_add_thread(protothread_anim);
 
     // start scheduler
