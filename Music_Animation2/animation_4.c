@@ -196,8 +196,8 @@ struct predator
 
 // Initializing boids
 #define N_flocks 3
-#define N_boids 200              // Max number of boids per flock
-uint16_t curr_N_boids = 200;     // Current number of boids
+#define N_boids 400              // Max number of boids per flock
+uint16_t curr_N_boids = 300;     // Current number of boids
 struct boid boid_flock[N_boids]; // Avoids paper flock
 
 // Initializing boid parameters
@@ -205,16 +205,16 @@ fix15 turnfactor = float2fix15(0.3);
 fix15 visualRange = int2fix15(40);
 fix15 protectedRange = int2fix15(10);
 fix15 centeringfactor = float2fix15(0.0005);
-fix15 avoidfactor = float2fix15(0.1);
+fix15 avoidfactor = float2fix15(0.25);
 fix15 matchingfactor = float2fix15(0.05);
-fix15 maxspeed = int2fix15(6);
-fix15 minspeed = int2fix15(3);
+fix15 maxspeed = int2fix15(4);
+fix15 minspeed = int2fix15(1);
 
 // Initializing predatory flock parameters
 fix15 predator_flock_range = int2fix15(5);
 fix15 predator_flock_turnfactor = float2fix15(0.3);
-fix15 maxspeed_predators = int2fix15(10);
-fix15 minspeed_predators = int2fix15(5);
+fix15 maxspeed_predators = int2fix15(6);
+fix15 minspeed_predators = int2fix15(3);
 fix15 turnfactor_predators = float2fix15(0.5);
 
 // Initializing predator s
@@ -223,8 +223,8 @@ volatile uint8_t curr_N_predators = 3; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
-fix15 predator_range = int2fix15(50);
-fix15 predator_turnfactor = float2fix15(0.5);
+fix15 predator_range = int2fix15(30);
+fix15 predator_turnfactor = float2fix15(5);
 
 // Mood
 uint8_t mood = 0;
@@ -357,7 +357,7 @@ int identify_music_mood(int cents)
 
     if (cents == 0 || cents == 4 || cents == 5 || cents == 7)
     { // Major = Green
-        color_degree = 120;
+        color_degree = 150;
     }
     else if (cents == 2 || cents == 3 || cents == 8 || cents == 9 || cents == 12)
     { // Minor = Blue
@@ -654,10 +654,10 @@ void boid_algo_init_calc(uint16_t curr_boid)
             fix15 dy_p = boid_flock[curr_boid].y - predators[i].y;
 
             // Are both those differences less than the predatory range?
-            if (absfix15(dx_p) < predator_range && absfix15(dx_p) < predator_range)
+            if (absfix15(dx_p) < predator_range && absfix15(dy_p) < predator_range)
             {
-                // boid_flock[curr_boid].predator_dx += boid_flock[curr_boid].x - predators[i].x;
-                // boid_flock[curr_boid].predator_dy += boid_flock[curr_boid].y - predators[i].y;
+                boid_flock[curr_boid].predator_dx += boid_flock[curr_boid].x - predators[i].x;
+                boid_flock[curr_boid].predator_dy += boid_flock[curr_boid].y - predators[i].y;
 
                 if (i = 0)
                 {
@@ -739,6 +739,31 @@ void boid_algo_update(uint16_t curr_boid)
     {
         boid_flock[curr_boid].vx = boid_flock[curr_boid].vx - turnfactor;
     }
+
+    if (turn_on_predator)
+    {
+        // If there were any predators in the predatory range, turn away
+        if (boid_flock[curr_boid].num_predators > 0)
+        {
+            if (boid_flock[curr_boid].predator_dy > 0)
+            {
+                boid_flock[curr_boid].vy = boid_flock[curr_boid].vy + predator_turnfactor;
+            }
+            if (boid_flock[curr_boid].predator_dy < 0)
+            {
+                boid_flock[curr_boid].vy = boid_flock[curr_boid].vy - predator_turnfactor;
+            }
+            if (boid_flock[curr_boid].predator_dx > 0)
+            {
+                boid_flock[curr_boid].vx = boid_flock[curr_boid].vx + predator_turnfactor;
+            }
+            if (boid_flock[curr_boid].predator_dx < 0)
+            {
+                boid_flock[curr_boid].vx = boid_flock[curr_boid].vx - predator_turnfactor;
+            }
+        }
+    }
+    
 
     fix15 speed;
     // Calculate the boid's speed
@@ -1129,13 +1154,15 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_algo_init_calc(current_boid);
         }
 
-        for (uint8_t current_predator = 0; current_predator < curr_N_predators; current_predator++)
+        for (uint8_t current_predator = 0; current_predator < 3; current_predator++)
         {
             // Erase predator
-            fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), size_circle, BLACK);
+            // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 3, BLACK);
 
             // Update predator's position and velocity
             predator_algo(current_predator);
+
+            // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 3, WHITE);
 
             // if (predators[current_predator].alive_counter > 0)
             // {

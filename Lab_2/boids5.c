@@ -117,8 +117,8 @@ fix15 protectedRange = int2fix15(8);
 fix15 centeringfactor = float2fix15(0.0005);
 fix15 avoidfactor = float2fix15(0.05);
 fix15 matchingfactor = float2fix15(0.05);
-fix15 maxspeed = int2fix15(6);
-fix15 minspeed = int2fix15(3);
+fix15 maxspeed = int2fix15(4);
+fix15 minspeed = int2fix15(2);
 
 // Initializing predator s
 #define N_predators 5         // Total # of possible predators
@@ -126,7 +126,7 @@ uint8_t curr_N_predators = 0; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
-fix15 predatory_range = int2fix15(100);
+fix15 predatory_range = int2fix15(50);
 fix15 predator_turnfactor = float2fix15(0.5);
 
 // All boolean values for both cores --> will wait for other core to synchronize animation
