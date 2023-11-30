@@ -244,12 +244,12 @@ struct tile
 };
 
 #define MAX_TILES 786
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 240
-uint8_t width = 32;  // tiles wide
-uint8_t height = 24; // tiles wide
-uint16_t total_tiles = width * height;
-uint8_t tile_side = SCREEN_WIDTH / width;
+// #define SCREEN_WIDTH 320
+// #define SCREEN_HEIGHT 240
+uint16_t width = 32;  // tiles wide
+uint16_t height = 24; // tiles wide
+uint16_t total_tiles = 32 * 24;
+uint16_t tile_side = 10;
 
 struct tile tiles[MAX_TILES];
 
@@ -577,31 +577,19 @@ void boid_algo_init_calc(uint16_t curr_boid)
         }
     }
 
-<<<<<<< HEAD
     // overall_mood is a hue
     int difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
     if (difference_from_overall_color > 0)
         boid_flock[curr_boid].hue += 1;
     else if (difference_from_overall_color < 0)
         boid_flock[curr_boid].hue -= 1;
-    == == == =
-                 if (change_to_overall)
-    {
-        // overall_mood is a hue
-        difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
-        if (difference_from_overall_color > 0)
-            boid_flock[curr_boid].hue += 5;
-        else if (difference_from_overall_color < 0)
-            boid_flock[curr_boid].hue -= 5;
-    }
->>>>>>> e3f6b204bf85ffffd88d2c0266ead41355f75b46
 
     // overall_mood moves to 0.5 saturation value
-    float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
-    if (diff_from_overall_saturation > 0)
-        boid_flock[curr_boid].sat += 0.01;
-    else if (diff_from_overall_saturation < 0)
-        boid_flock[curr_boid].sat -= 0.01;
+    // float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
+    // if (diff_from_overall_saturation > 0)
+    //     boid_flock[curr_boid].sat += 0.01;
+    // else if (diff_from_overall_saturation < 0)
+    //     boid_flock[curr_boid].sat -= 0.01;
 
     if (turn_on_predator)
     {
@@ -618,7 +606,7 @@ void boid_algo_init_calc(uint16_t curr_boid)
                 boid_flock[curr_boid].predator_dy += boid_flock[curr_boid].y - predators[i].y;
 
                 boid_flock[curr_boid].hue = predators[i].hue;
-                boid_flock[curr_boid].sat = predators[i].sat;
+                // boid_flock[curr_boid].sat = predators[i].sat;
 
                 // if (i = 0)
                 // {
@@ -639,7 +627,7 @@ void boid_algo_init_calc(uint16_t curr_boid)
         if (boid_flock[curr_boid].num_predators > 0)
         {
             boid_flock[curr_boid].hue = boid_flock[curr_boid].hue / (int)boid_flock[curr_boid].num_predators;
-            boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
+            // boid_flock[curr_boid].sat = boid_flock[curr_boid].sat / (float)boid_flock[curr_boid].num_predators;
         }
     }
 
@@ -647,10 +635,10 @@ void boid_algo_init_calc(uint16_t curr_boid)
     {
         boid_flock[curr_boid].hue -= 360;
     }
-    if (boid_flock[curr_boid].sat >= 1)
-    {
-        boid_flock[curr_boid].sat -= 1;
-    }
+    // if (boid_flock[curr_boid].sat >= 1)
+    // {
+    //     boid_flock[curr_boid].sat -= 1;
+    // }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1071,7 +1059,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     {
         spawn(&boid_flock[current_boid].x, &boid_flock[current_boid].y, &boid_flock[current_boid].vx, &boid_flock[current_boid].vy);
         boid_flock[current_boid].hue = 180;
-        boid_flock[current_boid].sat = 1;
+        // boid_flock[current_boid].sat = 1;
     }
 
     // Spawn all predators
@@ -1126,14 +1114,11 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         for (uint8_t current_predator = 0; current_predator < 3; current_predator++)
         {
             // Erase predator
-<<<<<<< HEAD
             // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), size_circle, BLACK);
-            == == == =
-                         // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 3, BLACK);
->>>>>>> e3f6b204bf85ffffd88d2c0266ead41355f75b46
 
-                // Update predator's position and velocity
-                predator_algo(current_predator);
+
+            // Update predator's position and velocity
+            predator_algo(current_predator);
 
             // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 3, WHITE);
 
@@ -1153,8 +1138,10 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             // Update boid state
             boid_algo_update(current_boid);
 
-            int col = (int)(boid_flock[current_boid].x / tile_side);
-            int row = (int)(boid_flock[current_boid].y / tile_side);
+            int col = (int)(fix2int15(boid_flock[current_boid].x) / tile_side);
+            int row = (int)(fix2int15(boid_flock[current_boid].y) / tile_side);
+
+            printf("col %d row %d\n", col, row);
 
             int tile_index = row * width + col;
             tiles[tile_index].total_hue += boid_flock[current_boid].hue;
@@ -1193,6 +1180,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             if (num_boids > 0)
             {
                 int avg_hue = tiles[i].total_hue / tiles[i].num_boids;
+                printf("avg_hue %d\n", avg_hue);
                 color_to_draw = hsv2rgb(avg_hue, 1, 1);
             }
             else
@@ -1531,7 +1519,7 @@ int main()
     {
         // Do color processing
         uint16_t row = i / width;
-        uint16_t col = i - row;
+        uint16_t col = i - row * width;
         tiles[i].x = col * tile_side;
         tiles[i].y = row * tile_side;
 
@@ -1544,7 +1532,7 @@ int main()
     multicore_launch_core1(&core1_entry);
 
     // add threads
-    pt_add_thread(protothread_serial);
+    // pt_add_thread(protothread_serial);
     pt_add_thread(protothread_anim);
 
     // start scheduler
