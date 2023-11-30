@@ -223,8 +223,11 @@ volatile uint8_t curr_N_predators = 3; // Current # of predators
 struct predator predators[N_predators];
 
 // Initializing predator parameters
-fix15 predator_range = int2fix15(30);
-fix15 predator_turnfactor = float2fix15(5);
+fix15 predator_range = int2fix15(75);
+fix15 predator_turnfactor = float2fix15(1.5);
+
+bool change_to_overall = false;
+int counter_hue = 0;
 
 // Mood
 uint8_t mood = 0;
@@ -373,7 +376,7 @@ int identify_music_mood(int cents)
         // {
         //     color_degree = 0;
         // }
-        color_degree = 0;
+        color_degree = 359;
     }
     return color_degree;
 }
@@ -631,13 +634,17 @@ void boid_algo_init_calc(uint16_t curr_boid)
         }
     }
 
-    // overall_mood is a hue
-    difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
-    if (difference_from_overall_color > 0)
-        boid_flock[curr_boid].hue += 1;
-    else if (difference_from_overall_color < 0)
-        boid_flock[curr_boid].hue -= 1;
+    if (change_to_overall)
+    {
+        // overall_mood is a hue
+        difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
+        if (difference_from_overall_color > 0)
+            boid_flock[curr_boid].hue += 5;
+        else if (difference_from_overall_color < 0)
+            boid_flock[curr_boid].hue -= 5;
+    }
 
+    
     // overall_mood moves to 0.5 saturation value
     float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
     if (diff_from_overall_saturation > 0)
@@ -1148,11 +1155,19 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             // printf("hue = %d\n\r", predators[2].hue);
         }
 
+        if (counter_hue > 10)
+            {
+                change_to_overall = true;
+                counter_hue = 0;
+            }
+        else counter_hue++;
+        
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
             // update boid's position and velocity
             boid_algo_init_calc(current_boid);
         }
+        if (change_to_overall) change_to_overall = false;
 
         for (uint8_t current_predator = 0; current_predator < 3; current_predator++)
         {
@@ -1182,7 +1197,8 @@ static PT_THREAD(protothread_anim(struct pt *pt))
 
             color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
 
-            // printf("boid hue = %d\n\r", boid_flock[current_boid].hue);
+
+            // printf("overall mood = %d\n\r", overall_mood);
 
 
             fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
