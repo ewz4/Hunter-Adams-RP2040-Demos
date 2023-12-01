@@ -182,7 +182,7 @@ void initVGA() {
 // pixels will be automatically updated on the screen.
 void drawPixel(short x, short y, char color) {
     // Range checks (640x480 display)
-    if (x > 319) x = 319 ;
+    if (x > 315) x = 315 ;
     if (x < 0) x = 0 ;
     if (y < 0) y = 0 ;
     if (y > 239) y = 239 ;

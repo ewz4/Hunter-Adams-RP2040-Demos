@@ -84,7 +84,7 @@ typedef signed int fix15;
 // ADC clock rate (unmutable!)
 #define ADCCLK 48000000.0
 
-fix15 max_fr; // temporary variable for max freq calculation
+fix15 max_fr ;           // temporary variable for max freq calculation
 
 // DMA channels for sampling ADC (VGA driver uses 0 and 1)
 int sample_chan = 4;
@@ -150,7 +150,7 @@ int size_circle = 2;
 #define hitRight(a) (a > int2fix15(260))
 
 // uS per frame
-#define FRAME_RATE 33000
+#define FRAME_RATE 120000
 
 // Boid and predator structs
 struct boid
@@ -160,7 +160,8 @@ struct boid
     fix15 y;
     fix15 vx;
     fix15 vy;
-    uint16_t hue;
+    int hue;
+    // float val;
     // float sat;
 
     // Variables of current state needed for boid algo calculation
@@ -188,7 +189,8 @@ struct predator
     fix15 vx;
     fix15 vy;
     uint8_t alive_counter;
-    uint16_t hue;
+    int hue;
+    // float val;
     // float sat;
 };
 
@@ -216,7 +218,7 @@ fix15 minspeed_predators = int2fix15(3);
 fix15 turnfactor_predators = float2fix15(0.5);
 
 // Initializing predator s
-#define N_predators 5                  // Total # of possible predators
+#define N_predators 5         // Total # of possible predators
 volatile uint8_t curr_N_predators = 3; // Current # of predators
 struct predator predators[N_predators];
 
@@ -237,45 +239,29 @@ volatile int animate_mood_3;
 struct tile
 {
     // Current state of predators
-    uint16_t x;
-    uint16_t y;
+    int x;
+    int y;
     int total_hue;
-    uint16_t num_boids;
+    int num_boids;
 };
 
 #define MAX_TILES 786
 // #define SCREEN_WIDTH 320
 // #define SCREEN_HEIGHT 240
-uint16_t width = 32;  // tiles wide
-uint16_t height = 24; // tiles wide
-uint16_t total_tiles = 32 * 24;
-uint16_t tile_side = 10;
+int width = 32;  // tiles wide
+int height = 24; // tiles wide
+int total_tiles = 32 * 24;
+int tile_side = 10;
 
 struct tile tiles[MAX_TILES];
 
-// Margin Size
-// uint16_t x_margin_left_box = 100;
-// uint16_t x_margin_right_box = 540;
-// uint16_t x_change_margin_box = 440;
-// uint16_t y_margin_top_box = 100;
-// uint16_t y_margin_bottom_box = 380;
-// uint16_t y_change_margin_box = 280;
-// uint8_t should_draw = 1;
-
-// Vertical Line Size
-// uint16_t x_margin_left_V_line = 200;
-// uint16_t x_margin_right_V_line = 440;
-// uint16_t y_margin_top_line = 0;
-// uint16_t y_change_margin_line = 480;
-
-// Screen Size
-// uint16_t y_screen_top = 0;
-// uint16_t y_screen_bottom = 480;
-// uint16_t x_screen_left = 0;
-// uint16_t x_screen_right = 640;
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////// Color Variables/Functions ///////////////////////////
+
+// interactive color
+char rgb_box;
 
 /////////////////// Music Identification Functions /////////////////////
 
@@ -537,6 +523,8 @@ void spawn(fix15 *x, fix15 *y, fix15 *vx, fix15 *vy)
 // Boid_algo initial calculation for ith boid
 void boid_algo_init_calc(uint16_t curr_boid)
 {
+    int difference_from_overall_color;
+
     for (uint16_t i = curr_boid + 1; i < curr_N_boids; i++)
     {
         fix15 dx_i = boid_flock[curr_boid].x - boid_flock[i].x;
@@ -577,13 +565,17 @@ void boid_algo_init_calc(uint16_t curr_boid)
         }
     }
 
-    // overall_mood is a hue
-    int difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
-    if (difference_from_overall_color > 0)
-        boid_flock[curr_boid].hue += 1;
-    else if (difference_from_overall_color < 0)
-        boid_flock[curr_boid].hue -= 1;
+    if (change_to_overall)
+    {
+        // overall_mood is a hue
+        difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
+        if (difference_from_overall_color > 0)
+            boid_flock[curr_boid].hue += 5;
+        else if (difference_from_overall_color < 0)
+            boid_flock[curr_boid].hue -= 5;
+    }
 
+    
     // overall_mood moves to 0.5 saturation value
     // float diff_from_overall_saturation = 0.5 - boid_flock[curr_boid].sat; // float
     // if (diff_from_overall_saturation > 0)
@@ -605,19 +597,16 @@ void boid_algo_init_calc(uint16_t curr_boid)
                 boid_flock[curr_boid].predator_dx += boid_flock[curr_boid].x - predators[i].x;
                 boid_flock[curr_boid].predator_dy += boid_flock[curr_boid].y - predators[i].y;
 
-                boid_flock[curr_boid].hue = predators[i].hue;
-                // boid_flock[curr_boid].sat = predators[i].sat;
-
-                // if (i = 0)
-                // {
-                //     boid_flock[curr_boid].hue = predators[i].hue;
-                //     boid_flock[curr_boid].sat = predators[i].sat;
-                // }
-                // else
-                // {
-                //     boid_flock[curr_boid].hue += predators[i].hue;
-                //     boid_flock[curr_boid].sat += predators[i].sat;
-                // }
+                if (i = 0)
+                {
+                    boid_flock[curr_boid].hue = predators[i].hue;
+                    //  boid_flock[curr_boid].sat = predators[i].sat;
+                }
+                else
+                {
+                    boid_flock[curr_boid].hue += predators[i].hue;
+                    // boid_flock[curr_boid].sat += predators[i].sat;
+                }
 
                 // Increment the number of predators in the boid's predatory range
                 boid_flock[curr_boid].num_predators++;
@@ -712,6 +701,7 @@ void boid_algo_update(uint16_t curr_boid)
             }
         }
     }
+    
 
     fix15 speed;
     // Calculate the boid's speed
@@ -1059,6 +1049,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     {
         spawn(&boid_flock[current_boid].x, &boid_flock[current_boid].y, &boid_flock[current_boid].vx, &boid_flock[current_boid].vy);
         boid_flock[current_boid].hue = 180;
+        // boid_flock[current_boid].val = 1;
         // boid_flock[current_boid].sat = 1;
     }
 
@@ -1096,44 +1087,35 @@ static PT_THREAD(protothread_anim(struct pt *pt))
         }
 
         if (counter_hue > 10)
-        {
-            change_to_overall = true;
-            counter_hue = 0;
-        }
-        else
-            counter_hue++;
+            {
+                change_to_overall = true;
+                counter_hue = 0;
+            }
+        else counter_hue++;
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
+            
             // update boid's position and velocity
             boid_algo_init_calc(current_boid);
         }
-        if (change_to_overall)
-            change_to_overall = false;
+
+        if (change_to_overall) change_to_overall = false;
+
+        // printf("Init Calc Done\n");
 
         for (uint8_t current_predator = 0; current_predator < 3; current_predator++)
         {
-            // Erase predator
-            // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), size_circle, BLACK);
-
-
-            // Update predator's position and velocity
             predator_algo(current_predator);
-
-            // fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 3, WHITE);
-
-            // if (predators[current_predator].alive_counter > 0)
-            // {
-            //     // Draw the predator at its new position
-            //     fillCircle(fix2int15(predators[current_predator].x), fix2int15(predators[current_predator].y), 5, WHITE);
-            // }
         }
+
+        // printf("Predator Calc Done\n");
 
         for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
         {
 
             // Erase boid
-            fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, BLACK);
+            // fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, BLACK);
 
             // Update boid state
             boid_algo_update(current_boid);
@@ -1141,17 +1123,12 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             int col = (int)(fix2int15(boid_flock[current_boid].x) / tile_side);
             int row = (int)(fix2int15(boid_flock[current_boid].y) / tile_side);
 
-            // printf("col %d row %d\n", col, row);
-
             int tile_index = row * width + col;
             tiles[tile_index].total_hue += boid_flock[current_boid].hue;
             tiles[tile_index].num_boids++;
 
-            char color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
-
-            // printf("boid hue = %d\n\r", boid_flock[current_boid].hue);
-
-            fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
+            // char color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
+            // fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
 
             // Set all values needed for boid calculate back to 0
             boid_flock[current_boid].close_dx = 0;
@@ -1171,31 +1148,52 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             boid_flock[current_boid].num_predators = 0;
         }
 
-        // for (uint16_t i = 0; i < total_tiles; i++)
-        // {
-        //     // Do color processing
-        //     int num_boids = tiles[i].num_boids;
-        //     char color_to_draw;
+        // printf("boid Calc Done\n");
 
-        //     if (num_boids > 0)
-        //     {
-        //         int avg_hue = tiles[i].total_hue / tiles[i].num_boids;
-        //         color_to_draw = hsv2rgb(avg_hue, 1, 1);
-        //         printf("avg hue %d\n", avg_hue);
-        //     }
-        //     else
-        //     {
-        //         color_to_draw = hsv2rgb(overall_mood, 1, 1);
-        //         printf("overall mood %d\n", overall_mood);
-        //     }
+        for (int i = 0; i < total_tiles; i++)
+        {
+            // Do color processing
+            int num_boids = tiles[i].num_boids;
+            char color_to_draw;
 
-        //     fillRect(tiles[i].x, tiles[i].y, tile_side, tile_side, color_to_draw);
+            
+            if (num_boids > 0)
+            {
+                // printf("Crash in if\n");
+                int avg_hue = tiles[i].total_hue / tiles[i].num_boids;
+                color_to_draw = hsv2rgb(avg_hue, 1, 1);
+                // printf("avg hue %d\n", avg_hue);
+                // printf("num boids %d\n", tiles[i].num_boids);
+            }
+            else
+            {
+                // printf("Crash in else\n");
+                printf("overall mood %d\n", overall_mood);
+                // color_to_draw = hsv2rgb(overall_mood, 1, 1);
+                color_to_draw = rgb(7,0,0);
+                
+            }
+            printf("Crash before fillRect\n");
 
-        //     tiles[i].num_boids = 0;
-        // }
+            // color_to_draw = hsv2rgb(120, 1, 1);
+            // printf("predators = %d\n", curr_N_predators);
+
+            fillRect(tiles[i].x, tiles[i].y, tile_side, tile_side, color_to_draw);
+            // printf("tile x %d\n", tiles[i].x);
+            // printf("tile y %d\n", tiles[i].y);
+            // printf("Crash before zeroing\n");
+            tiles[i].total_hue = 0;
+            tiles[i].num_boids = 0;
+        }
+
+        printf("Tile Calc Done\n");
+        // char color_to_draw = hsv2rgb(120, 1, 1);
+        // fillRect(5, 5, 20, 20, color_to_draw);
 
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
-        PT_YIELD_usec(spare_time);
+        PT_YIELD_usec(100);
+
+        // printf("Spare Time Done\n");
 
         // NEVER exit while
     } // END WHILE(1)
@@ -1298,7 +1296,7 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
             curr_N_predators = music_stuff();
             // curr_N_predators = 1;
             turn_on_predator = true;
-            printf("num predators = %d\n", curr_N_predators);
+            // printf("num predators = %d\n", curr_N_predators);
 
             // turn_on_predator = false;
 
@@ -1316,6 +1314,7 @@ static PT_THREAD(protothread_FFT(struct pt *pt))
     } // END WHILE(1)
     PT_END(pt);
 } // fft thread
+
 
 // ==================================================
 // === users serial input thread core 1
@@ -1344,6 +1343,37 @@ static PT_THREAD(protothread_serial_core_1(struct pt *pt))
     }
     PT_END(pt);
 }
+
+// ==================================================
+// === toggle25 thread on core 1
+// ==================================================
+// the on-board LED blinks
+static PT_THREAD (protothread_toggle25(struct pt *pt))
+{
+    PT_BEGIN(pt);
+    static bool LED_state = false ;
+    
+     // set up LED p25 to blink
+     gpio_init(25) ;	
+     gpio_set_dir(25, GPIO_OUT) ;
+     gpio_put(25, true);
+     // data structure for interval timer
+     PT_INTERVAL_INIT() ;
+
+      while(1) {
+        // yield time 0.1 second
+        //PT_YIELD_usec(100000) ;
+        PT_YIELD_INTERVAL(1000) ;
+
+        // toggle the LED on PICO
+        LED_state = LED_state? false : true ;
+        gpio_put(25, LED_state);
+        //
+        // NEVER exit while
+      } // END WHILE(1)
+  PT_END(pt);
+} // blink thread
+
 
 // Core 1 entry point (main() for core 1)
 void core1_entry()
@@ -1432,8 +1462,9 @@ void core1_entry()
     /////////////////////////////////////////////////////////////////////////////
     // Add and schedule threads
     pt_add_thread(protothread_FFT);
+    // pt_add_thread(protothread_toggle25);
     // pt_add_thread(protothread_serial_core_1);
-
+    
     pt_schedule_start;
 }
 
@@ -1455,18 +1486,16 @@ int main()
     // initialize VGA
     initVGA();
 
-    for (uint16_t i = 0; i < total_tiles; i++)
+    for (int i = 0; i < total_tiles; i++)
     {
         // Do color processing
-        uint16_t row = i / width;
-        uint16_t col = i - row * width;
+        int row = i / width;
+        int col = i - row * width;
         tiles[i].x = col * tile_side;
         tiles[i].y = row * tile_side;
 
-        // char color_to_draw = hsv2rgb(overall_mood, 1, 1);
-        // fillRect(tiles[i].x, tiles[i].y, tile_side, tile_side, color_to_draw);
-        // printf("overall mood %d\n", overall_mood);
     }
+
 
     // Launch core 1
     multicore_reset_core1();
@@ -1475,6 +1504,7 @@ int main()
     // add threads
     // pt_add_thread(protothread_serial);
     pt_add_thread(protothread_anim);
+    pt_add_thread(protothread_toggle25);
 
     // start scheduler
     pt_schedule_start;
