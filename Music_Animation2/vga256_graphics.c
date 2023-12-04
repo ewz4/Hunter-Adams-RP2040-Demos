@@ -118,7 +118,7 @@ void initVGA() {
         &pio->txf[rgb_sm],          // write address (RGB PIO TX FIFO)
         &vga_data_array,            // place holder for first load from channel one
         TXCOUNT,                    // Number of transfers; in this case each is 1 byte.
-        true                       // Don't start immediately.
+        true                       //  start immediately.
     );
 
     // ===============================================
