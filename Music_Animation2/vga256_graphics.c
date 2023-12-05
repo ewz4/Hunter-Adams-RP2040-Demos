@@ -16,6 +16,7 @@
 // Font file
 #include "glcdfont.c"
 
+
 // VGA timing constants
 #define H_ACTIVE   655    // (active + frontporch - 1) - one cycle delay for mov
 #define V_ACTIVE   479    // (active - 1)
@@ -591,15 +592,23 @@ inline void writeString(char* str){
 // ==================================================
 // === convert HSV to rgb value (added by Bruce)
 // ==================================================
-char hsv2rgb(float h, float s, float v){
+char hsv2rgb(float h, float s, float v, float trigger){
+    // if (trigger == 1) printf("in rgb calc\n");
     float C, X, m, rp, gp, bp ;
     unsigned char r, g, b ;
     // hsv to rgb conversion from
     // http://www.rapidtables.com/convert/color/hsv-to-rgb.htm
+    // if (trigger == 1) printf("before C\n");
+    // printf("v = %f\n", v);
+    // printf("s = %f\n", s);
     C = v * s;
+    // C = 1;
+    // if (trigger == 1) printf("C = %f\n", C);
     //X = C * (1 - abs((int)(h/60)%2 - 1));
     // (h/60) mod 2  = (h/60 - (int)(h/60))
+    // if (trigger == 1) printf("before x line\n");
     X = C * (1.0 - fabsf(fmodf(h/60.0, 2.0) - 1.));
+    // if (trigger == 1) printf("after x line\n");
     m = v - C;
     if      ((0<=h) && (h<60))   { rp = C; gp = X; bp = 0;}
     else if ((60<=h) && (h<120)) { rp = X; gp = C; bp = 0;}

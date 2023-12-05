@@ -60,4 +60,4 @@ void setTextWrap(char w);
 void tft_write(unsigned char c) ;
 void writeString(char* str) ;
 // added by Bruce (brl4)
-char hsv2rgb(float, float, float) ;
+char hsv2rgb(float, float, float, float) ;
