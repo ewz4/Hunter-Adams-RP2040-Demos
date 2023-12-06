@@ -125,16 +125,17 @@ struct note_mag_freq_mood_array // Struct that keeps mag and frequency of notes
 };
 
 struct note_mag_freq_array current_loudest_3_notes[3]; // Take top 3 notes of current sample mag and freq
-struct note_mag_freq_mood_array past_10_notes[10];     // Store past 10 high notes
+struct note_mag_freq_mood_array past_notes[20];     // Store past 10 high notes
 
 // Global variables
 volatile int overall_mood;
+int counter_overall_mood = 0;
 fix15 percent_diff = 0;
 fix15 percent_diff_threshold = float2fix15(0.01);
 fix15 old_note_mag = float2fix15(0.001);
 fix15 freq_calc = float2fix15(Fs / NUM_SAMPLES);
 fix15 percentage_high_note_diff = float2fix15(0.05);
-fix15 mag_threshold = int2fix15(1);
+fix15 mag_threshold = float2fix15(1.5);
 volatile bool turn_on_predator = false;
 int size_circle = 2;
 
@@ -262,13 +263,13 @@ struct tile
     int num_boids;
 };
 
-#define MAX_TILES 768
+#define MAX_TILES 192
 // #define SCREEN_WIDTH 320
 // #define SCREEN_HEIGHT 240
-int width = 32;  // tiles wide
-int height = 24; // tiles wide
-int total_tiles = 768;
-int tile_side = 10;
+int width = 16;  // tiles wide
+int height = 12; // tiles wide
+int total_tiles = 192;
+int tile_side = 20;
 
 struct tile tiles[MAX_TILES];
 
@@ -363,7 +364,7 @@ int music_stuff()
             else
                 bottom_note = current_loudest_3_notes[m].freq;
         }
-        interval_1 = solve_for_cents(past_10_notes[9].freq, top_note);
+        interval_1 = solve_for_cents(past_notes[9].freq, top_note);
         interval_2 = solve_for_cents(bottom_note, middle_note);
         interval_3 = solve_for_cents(middle_note, top_note);
         animate_mood_1 = identify_music_mood(interval_1);
@@ -384,7 +385,7 @@ int music_stuff()
             top_note = current_loudest_3_notes[1].freq;
             middle_note = current_loudest_3_notes[0].freq;
         }
-        interval_1 = solve_for_cents(past_10_notes[9].freq, top_note);
+        interval_1 = solve_for_cents(past_notes[9].freq, top_note);
         interval_2 = solve_for_cents(bottom_note, top_note);
         animate_mood_1 = identify_music_mood(interval_1);
         animate_mood_2 = identify_music_mood(interval_2);
@@ -403,7 +404,7 @@ int music_stuff()
             top_note = current_loudest_3_notes[2].freq;
             middle_note = current_loudest_3_notes[0].freq;
         }
-        interval_1 = solve_for_cents(past_10_notes[9].freq, top_note);
+        interval_1 = solve_for_cents(past_notes[9].freq, top_note);
         interval_2 = solve_for_cents(middle_note, top_note);
         animate_mood_1 = identify_music_mood(interval_1);
         animate_mood_2 = identify_music_mood(interval_2);
@@ -412,29 +413,34 @@ int music_stuff()
     else
     {
         top_note = current_loudest_3_notes[0].freq;
-        cents_with_prev_note = solve_for_cents(past_10_notes[9].freq, top_note);
+        cents_with_prev_note = solve_for_cents(past_notes[9].freq, top_note);
         animate_mood_1 = identify_music_mood(cents_with_prev_note);
         num_new_colors = 1;
     }
 
-    for (int i = 0; i < 10; i++)
+    if (counter_overall_mood > 20)
     {
-        if (i == 9)
+        for (int i = 0; i < 20; i++)
         {
-            past_10_notes[i].freq = top_note;
-            past_10_notes[i].mood = animate_mood_1;
-            sum_mood += past_10_notes[i].mood;
+            if (i == 19)
+            {
+                past_notes[i].freq = top_note;
+                past_notes[i].mood = animate_mood_1;
+                sum_mood += past_notes[i].mood;
+            }
+            else
+            {
+                past_notes[i].freq = past_notes[i + 1].freq;
+                past_notes[i].mood = past_notes[i + 1].mood;
+                sum_mood += past_notes[i].mood;
+            }
         }
-        else
-        {
-            past_10_notes[i].freq = past_10_notes[i + 1].freq;
-            past_10_notes[i].mood = past_10_notes[i + 1].mood;
-            sum_mood += past_10_notes[i].mood;
-        }
+        // printf("sum_mood = %f\n",sum_mood);
+        overall_mood = sum_mood / 20;
+        counter_overall_mood = 0;
     }
-    // printf("sum_mood = %f\n",sum_mood);
-    overall_mood = sum_mood / 10;
-
+    else counter_overall_mood++;
+    
     return num_new_colors;
 }
 
@@ -598,9 +604,9 @@ void boid_algo_init_calc(uint16_t curr_boid)
         // overall_mood is a hue
         difference_from_overall_color = overall_mood - boid_flock[curr_boid].hue;
         if (difference_from_overall_color > 0)
-            boid_flock[curr_boid].hue += 5;
+            boid_flock[curr_boid].hue += 15;
         else if (difference_from_overall_color < 0)
-            boid_flock[curr_boid].hue -= 5;
+            boid_flock[curr_boid].hue -= 15;
     }
 
     
@@ -648,7 +654,7 @@ void boid_algo_init_calc(uint16_t curr_boid)
         }
     }
 
-    if (boid_flock[curr_boid].hue >= 360)
+    while (boid_flock[curr_boid].hue >= 360)
     {
         boid_flock[curr_boid].hue -= 360;
     }
@@ -1076,7 +1082,7 @@ static PT_THREAD(protothread_anim(struct pt *pt))
     // Variables for maintaining frame rate
     int begin_time;
     int spare_time;
-    char color_to_draw = hsv2rgb(120, 1, 1, 0);
+    char color_to_draw = hsv2rgb(120, 0.75, 1);
 
     // Spawn boid flocks
     for (uint16_t current_boid = 0; current_boid < curr_N_boids; current_boid++)
@@ -1159,13 +1165,21 @@ static PT_THREAD(protothread_anim(struct pt *pt))
             int row = (int)(fix2int15(boid_flock[current_boid].y) / tile_side);
 
             int tile_index = row * width + col;
-            if (tile_index >= total_tiles) {
-                tile_index = total_tiles - 1;
-            }
+            // if (tile_index >= total_tiles) {
+            //     tile_index = total_tiles - 1;
+            // }
             if (tile_index > total_tiles) printf("%d\n", tile_index);
             if (tile_index < 0) printf("%d\n", tile_index);
+            // printf("tile index =%d\n", tile_index);
+            // printf("boid hue %d\n",boid_flock[current_boid].hue);
             tiles[tile_index].total_hue += boid_flock[current_boid].hue;
             tiles[tile_index].num_boids++;
+            // if (tiles[tile_index].total_hue > 2000)
+            // {
+            //     printf("boid hue %d\n", boid_flock[current_boid].hue);
+            //     printf("total hue %d\n", tiles[tile_index].total_hue);
+            //     printf("num boids %d\n", tiles[tile_index].num_boids);
+            // }
 
             // char color_to_draw = hsv2rgb(boid_flock[current_boid].hue, 1, 1);
             // fillCircle(fix2int15(boid_flock[current_boid].x), fix2int15(boid_flock[current_boid].y), size_circle, color_to_draw);
@@ -1226,7 +1240,14 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 // if (error) printf("in if\n");
                 // printf("in if\n");
                 int avg_hue = tiles[i].total_hue / tiles[i].num_boids;
-                color_to_draw = hsv2rgb(avg_hue, 1, 1, error);
+                color_to_draw = hsv2rgb(avg_hue, 0.75, 1);
+                // if (color_to_draw == 0)
+                // {
+                //     printf("color = %d\n", color_to_draw);
+                //     printf("avg hue %d\n", avg_hue);
+                //     printf("num num boids %d\n", tiles[i].num_boids);
+                //     printf("total hue %d\n", tiles[i].total_hue);
+                // }
                 // printf("avg hue %d\n", avg_hue);
                 // printf("num boids %d\n", tiles[i].num_boids);
             }
@@ -1236,14 +1257,19 @@ static PT_THREAD(protothread_anim(struct pt *pt))
                 // printf("in else\n");
                 // printf("overall mood %d\n", overall_mood);
                 // if (error == 1) printf("overall mood %d\n", overall_mood);
-                color_to_draw = hsv2rgb(overall_mood, 1, 1, error);
+                color_to_draw = hsv2rgb(overall_mood, 0.75, 1);
+                // if (color_to_draw == 0)
+                // {
+                //     printf("color = %d\n", color_to_draw);
+                //     printf("overall mood %d\n", overall_mood);
+                // }
                 // if (error == 1) printf("color to draw %d\n",color_to_draw);
                 // color_to_draw = rgb(7,0,0);
             }
             /////
 
             //printf("before fillRect\n");
-
+            
             // color_to_draw = hsv2rgb(120, 1, 1);
             // printf("predators = %d\n", curr_N_predators);
             
@@ -1589,7 +1615,7 @@ int main()
     multicore_launch_core1(&core1_entry);
 
     // add threads
-    // pt_add_thread(protothread_serial);
+    pt_add_thread(protothread_serial);
     pt_add_thread(protothread_anim);
     // pt_add_thread(protothread_toggle25);
 

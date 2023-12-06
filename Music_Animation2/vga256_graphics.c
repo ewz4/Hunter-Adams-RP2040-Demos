@@ -592,7 +592,7 @@ inline void writeString(char* str){
 // ==================================================
 // === convert HSV to rgb value (added by Bruce)
 // ==================================================
-char hsv2rgb(float h, float s, float v, float trigger){
+char hsv2rgb(float h, float s, float v){
     // if (trigger == 1) printf("in rgb calc\n");
     float C, X, m, rp, gp, bp ;
     unsigned char r, g, b ;
