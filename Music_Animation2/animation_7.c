@@ -10,14 +10,27 @@
  * HARDWARE CONNECTIONS
  *  - GPIO 16 ---> VGA Hsync
  *  - GPIO 17 ---> VGA Vsync
- *  - GPIO 18 ---> 330 ohm resistor ---> VGA Red
- *  - GPIO 19 ---> 330 ohm resistor ---> VGA Green
- *  - GPIO 20 ---> 330 ohm resistor ---> VGA Blue
- *  - RP2040 GND ---> VGA GND
+ * 
+ *  - GPIO 08 ---> 330 ohm resistor ---> VGA Blue lo-bit |__ both wired to 150 ohm to ground 
+ *  - GPIO 09 ---> 220 ohm resistor ---> VGA Blue hi_bit |   and to VGA blue
+ * 
+ *  - GPIO 10 ---> 1000 ohm resistor ---> VGA Green lo-bit |__ three wired to 100 ohm to ground
+ *  - GPIO 11 ---> 680 ohm resistor ---> VGA Green mid_bit |   and to VGA Green
+ *  - GPIO 12 ---> 330 ohm resistor ---> VGA Green hi_bit  |   
+ * 
+ *  - GPIO 13 ---> 1000 ohm resistor ---> VGA Red lo-bit |__ three wired to 100 ohm to ground
+ *  - GPIO 14 ---> 680 ohm resistor ---> VGA Red mid_bit |   and to VGA red
+ *  - GPIO 15 ---> 330 ohm resistor ---> VGA Red hi_bit  |   
+ * 
+ *  - RP2040 GND ---> VGA GND, Audio GND
+ *
+ *  - GPIO 26 ---> Audio input [0-3.3V]
  *
  * RESOURCES USED
  *  - PIO state machines 0, 1, and 2 on PIO instance 0
- *  - DMA channels 0, 1
+ *  - DMA channels 0, 1, 2, and 3
+ *  - ADC channel 0
+ *  - 153.6 kBytes of RAM (for pixel color data)
  *
  *
  */
